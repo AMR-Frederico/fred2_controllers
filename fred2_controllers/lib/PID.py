@@ -60,9 +60,9 @@ class PID_controller:
         return self.delta_error * self.KD 
 
 
-    def output(self, current_value, setpoint): 
+    def output(self, error): 
 
-        self.error = setpoint - current_value 
+        self.error = error 
 
 
         self.time = time()
