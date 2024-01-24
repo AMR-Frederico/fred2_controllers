@@ -11,6 +11,17 @@ find_package(ament_cmake REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
+#------------------------------------------------------------------------------------------------------
+# PYTHON CONFIGURATION --------------------------------------------------------------------------------
+# install Python modules
+ament_python_install_package(${PROJECT_NAME})
+
+# install python packages 
+install(PROGRAMS 
+  fred2_controllers/scripts/position_controller.py 
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
