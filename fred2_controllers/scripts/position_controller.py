@@ -4,10 +4,12 @@ import rclpy
 import transforms3d as tf3d     # angle manipulaton 
 import threading 
 import math
-import tf2_ros  
 
 from typing import List
+
 from fred2_controllers.lib.PID import PID_controller
+from fred2_controllers.lib.quat_multiply import quaternion_multiply, reduce_angle
+from fred2_controllers.lib.load_params import load_params
 
 from rclpy.context import Context
 
@@ -17,8 +19,14 @@ from rclpy.executors import SingleThreadedExecutor
 from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy
 
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Pose2D, PoseStamped, Pose, Quaternion
+from geometry_msgs.msg import Pose2D, PoseStamped, Pose, Quaternion, Twist
 from std_msgs.msg import Int16 
+
+
+# Parameters file (yaml)
+node_path = '~/ros2_ws/src/fred2_controllers/conf/controllers_params.yaml'
+node_group = 'position_control'
+
 
 
 
@@ -31,8 +39,13 @@ class positionControl (Node):
 
     movement_direction = 1 
 
-    robot_heading_backward = Pose2D()
-    robot_heading_front = Pose2D()
+    robot_quat = Quaternion()
+    robot_pose = Pose2D()
+
+    bkward_pose = Pose2D()
+    front_pose = Pose2D()
+
+    cmd_vel = Twist()
 
     def __init__(self, 
                  node_name: str, 
@@ -78,6 +91,24 @@ class positionControl (Node):
                                  '/machine_states/robot_state', 
                                  self.robotState_callback, 
                                  qos_profile)
+        
+        self.vel_pub = self.create_publisher(Twist, 
+                                            '/cmd_vel', 
+                                            qos_profile)
+        
+        load_params(node_path, node_group)
+        self.get_params()
+
+
+
+    def get_params(self): 
+        
+        self.KP_ANGULAR = self.get_parameter('kp_angular').value
+        self.KI_ANGULAR = self.get_parameter('ki_angular').value
+        self.KD_ANGULAR = self.get_parameter('kd_angular').value
+
+        self.MAX_LINEAR_VEL = self.get_parameter('max_linear_vel').value
+        self.MIN_LINEAR_VEL = self.get_parameter('min_linear_vel').value
 
 
 
@@ -116,24 +147,99 @@ class positionControl (Node):
     
     def move_backward(self): 
 
-        self.robot_heading_backward.x = self.odom_pose.position.x 
-        self.robot_heading_backward.y = self.odom_pose.position.y 
-
         reverse_facing = tf3d.euler.euler2quat(0, 0, math.pi)
         
         backwart_quat = Quaternion()
-        backwart_quat = quaternion_multiply
+        backwart_quat = quaternion_multiply(self.odom_pose.orientation, reverse_facing)
 
+        backwart_pose = Pose2D()
+        backwart_pose.x = self.odom_pose.position.x 
+        backwart_pose.y = self.odom_pose.position.y 
+        backwart_pose.theta = tf3d.euler.quat2euler([backwart_quat.w, 
+                                                     backwart_quat.x, 
+                                                     backwart_quat.y, 
+                                                     backwart_quat.z])[2]
+
+
+        return backwart_pose
+    
+
+
+
+    def move_front(self): 
+        
+        front_quat = Quaternion()
+        front_quat = self.odom_pose.orientation
+
+        front_pose = Pose2D()
+        front_pose.x = self.odom_pose.position.x 
+        front_pose.y = self.odom_pose.position.y 
+        front_pose.theta = tf3d.euler.quat2euler([front_quat.w, 
+                                                  front_quat.x, 
+                                                  front_quat.y, 
+                                                  front_quat.z])
+        
+
+        return front_pose
 
 
 
 
     def position_control (self): 
+        
 
         if self.movement_direction == 1: 
+            
+            self.robot_pose = self.move_front()
+
+
+        elif self.movement_direction == -1: 
+            
+            self.robot_pose = self.move_backward()
+
+        
+
+        dx = self.goal_pose.x - self.robot_pose.x 
+        dy = self.goal_pose.y - self.robot_pose.y 
+
+
+        error_angle = math.atan2(dy, dx)
+
+        self.bkward_pose = self.move_backward()
+        bkward_heading_error = reduce_angle(error_angle - self.bkward_pose.theta)
+
+
+        self.front_quat = self.move_front()
+        front_heading_error = reduce_angle(error_angle - self.front_pose.theta)
+
+
+        if (abs(front_heading_error) > abs(bkward_heading_error) and (self.movement_direction == 1)):
+            
+            self.movement_direction = -1 
+            self.robot_pose = self.move_backward()
 
 
 
+        if (abs(front_heading_error) < abs(bkward_heading_error) and (self.movement_direction == -1)): 
+            
+            self.movement_direction = 1 
+            self.robot_pose = self.move_front 
+        
+
+        orientation_error = reduce_angle(error_angle - self.robot_pose.theta)
+
+
+        angular_vel = PID_controller(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
+
+
+        self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
+        
+        self.cmd_vel.angular.z = angular_vel.output(orientation_error)
+
+
+        if self.robot_state == 5: 
+            
+            self.vel_pub.publish(self.cmd_vel)
 
 
 
