@@ -17,10 +17,17 @@ find_package(ament_cmake REQUIRED)
 ament_python_install_package(${PROJECT_NAME})
 
 # install python packages 
-install(PROGRAMS 
-  fred2_controllers/scripts/position_controller.py 
+install(
+  DIRECTORY fred2_controllers/scripts fred2_controllers/lib
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# install Python executables
+install(PROGRAMS
+  fred2_controllers/scripts/position_controller.py
   DESTINATION lib/${PROJECT_NAME}
 )
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
