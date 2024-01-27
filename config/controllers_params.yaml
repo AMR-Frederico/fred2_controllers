@@ -1,9 +1,7 @@
 position_control:
+  KP_angular: 1.0
+  KI_angular: 0.0  # Make sure this is a numerical value (float or int), not a string
+  KD_angular: 0.0
 
-  KP_angular: 1
-  KI_angular: 0
-  KD_angular: 0
-
-  max_linear_vel: 2.0         # max vel when the robot is in a straight line
-  min_linear_vel: 0.0         # min vel for taking turns 
-
+  max_linear_vel: 2.0
+  min_linear_vel: 0.0
