@@ -1,2 +1,3 @@
 .vscode
-fred2_controllers/__pycache__/positionController.cpython-310.pyc
+fred2_controllers/__pycache__/
+fred2_controllers/lib/__pycache__/
