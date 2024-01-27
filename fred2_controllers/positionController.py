@@ -6,6 +6,8 @@ import threading
 import math
 import os 
 import yaml 
+import sys
+
 
 from typing import List
 
@@ -18,6 +20,8 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy
+from rcl_interfaces.msg import SetParametersResult
+
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose2D, PoseStamped, Pose, Quaternion, Twist
@@ -29,7 +33,7 @@ node_path = '/home/ubuntu/ros2_ws/src/fred2_controllers/config/controllers_param
 node_group = 'position_control'
 
 
-
+debug_mode = "--debug" in sys.argv
 
 class positionController (Node): 
     
@@ -50,6 +54,7 @@ class positionController (Node):
 
     rotation_quat = [0.0, 0.0, 0.0, 0.0]
     robot_quat = [0.0, 0.0, 0.0, 0.0]
+
 
     def __init__(self, 
                 node_name: str, 
@@ -91,10 +96,12 @@ class positionController (Node):
                                 self.goalCurrent_callback, 
                                 qos_profile)
         
+
         self.create_subscription(Int16, 
                                 '/machine_states/robot_state', 
                                 self.robotState_callback, 
                                 qos_profile)
+        
         
         self.vel_pub = self.create_publisher(Twist, 
                                             '/cmd_vel', 
@@ -103,6 +110,40 @@ class positionController (Node):
 
         self.load_params(node_path, node_group)
         self.get_params()
+
+        self.add_on_set_parameters_callback(self.parameters_callback)
+
+
+
+    def parameters_callback(self, params):
+        
+        for param in params:
+            self.get_logger().info(f"Parameter '{param.name}' changed to: {param.value}")
+
+
+
+        if param.name == 'kp_angular':
+            self.KP_ANGULAR = param.value
+    
+  
+        if param.name == 'kd_angular':
+            self.KD_ANGULAR = param.value
+
+
+        if param.name == 'ki_angular': 
+            self.KI_ANGULAR = param.value
+
+
+        if param.name == 'max_linear_vel': 
+            self.MAX_LINEAR_VEL = param.value
+        
+
+        if param.name == 'min_linear_vel': 
+            self.MIN_LINEAR_VEL = param.value
+
+
+        return SetParametersResult(successful=True)
+
 
 
     def load_params(self, path, group): 
@@ -141,6 +182,7 @@ class positionController (Node):
 
 
 
+
     def goalCurrent_callback(self, goal): 
 
         self.goal_pose.x = goal.pose.position.x 
@@ -164,7 +206,7 @@ class positionController (Node):
         self.odom_pose.orientation.y = odom_msg.pose.pose.orientation.y 
         self.odom_pose.orientation.z = odom_msg.pose.pose.orientation.z 
         
-        
+
     
     
     def move_backward(self): 
@@ -227,16 +269,16 @@ class positionController (Node):
             self.robot_pose = self.move_front()
 
 
+
         elif self.movement_direction == -1: 
             
             self.robot_pose = self.move_backward()
-
         
 
         dx = self.goal_pose.x - self.robot_pose.x 
         dy = self.goal_pose.y - self.robot_pose.y 
 
-
+        error_linear = math.hypot(dx, dy)
         error_angle = math.atan2(dy, dx)
 
         self.bkward_pose = self.move_backward()
@@ -252,13 +294,18 @@ class positionController (Node):
             self.movement_direction = -1 
             self.robot_pose = self.move_backward()
 
+            self.get_logger().info('Switching to backwards')
+
 
 
         if (abs(front_heading_error) < abs(bkward_heading_error) and (self.movement_direction == -1)): 
             
             self.movement_direction = 1 
-            self.robot_pose = self.move_front 
-        
+            self.robot_pose = self.move_front()
+
+            self.get_logger().info('Switching to foward')
+
+
 
         orientation_error = reduce_angle(error_angle - self.robot_pose.theta)
 
@@ -266,14 +313,32 @@ class positionController (Node):
         angular_vel = PID_controller(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
 
 
-        self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
+        if error_linear != 0:
+
+            self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
         
+        else: 
+
+            self.cmd_vel.linear.x = 0.0
+
+
+
         self.cmd_vel.angular.z = angular_vel.output(orientation_error)
 
 
         if self.robot_state == 5: 
             
             self.vel_pub.publish(self.cmd_vel)
+
+
+
+
+        if debug_mode:
+
+            self.get_logger().info(f"Robot pose -> x:{self.robot_pose.x} | y: {self.robot_pose.y } | theta: {self.robot_pose.theta}")
+            self.get_logger().info(f"Moviment direction -> {self.movement_direction}")
+            self.get_logger().info(f"Error -> linear: {error_linear} | angular: {error_angle}\n")
+
 
 
 def main(): 
@@ -314,5 +379,9 @@ def main():
     rclpy.shutdown()
     thread.join()
 
+
+
+
 if __name__ == '__main__':
+    
     main()
