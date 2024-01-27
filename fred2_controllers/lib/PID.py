@@ -14,33 +14,41 @@ class PID_controller:
 
         self.time = time()
         self.last_time = time()
-        self.delta_time = 0
+        self.delta_time = 0.0
 
-        self.error = 0
-        self.last_error = 0
-        self.delta_error = 0
+        self.error = 0.0
+        self.last_error = 0.0
+        self.delta_error = 0.0
 
-        self.integrative = 0
+        self.integral = 0.0
+
+
 
 
 
     def proporcional(self): 
 
+
         return self.KP * self.error
     
 
 
+
+
     def integrative(self): 
 
-        self.integrative += self.error * self.delta_time
+        self.integral += self.error * self.delta_time
 
 
-        if abs(self.integrative) > self.SATURATION: 
+        if abs(self.integral) > self.SATURATION: 
 
-            self.integrative = 0
-        
-        return self.integrative * self.KI
+            self.integral = 0
+
+
+
+        return self.integral * self.KI
     
+
 
 
     def derivative(self):
@@ -48,16 +56,18 @@ class PID_controller:
         self.delta_error = self.error - self.last_error
 
         
-        if self.delta_error != 0: 
+        if self.delta_error != 0.0: 
 
             self.delta_error = self.delta_error / self.delta_time
 
         else: 
 
-            self.delta_error = 0
+            self.delta_error = 0.0
 
 
         return self.delta_error * self.KD 
+
+
 
 
     def output(self, error): 
@@ -73,9 +83,11 @@ class PID_controller:
             
             pid_output = self.proporcional() + self.integrative() + self.derivative()
 
+
         else: 
 
             pid_output = self.proporcional() + self.derivative()
+
 
         
         self.last_error = self.error
