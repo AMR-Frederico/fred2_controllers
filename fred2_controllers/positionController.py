@@ -20,7 +20,10 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy
+
+
 from rcl_interfaces.msg import SetParametersResult
+from rcl_interfaces.srv import GetParameters
 
 
 from nav_msgs.msg import Odometry
@@ -54,6 +57,15 @@ class positionController (Node):
 
     rotation_quat = [0.0, 0.0, 0.0, 0.0]
     robot_quat = [0.0, 0.0, 0.0, 0.0]
+
+
+    # starts with randon value 
+    ROBOT_MANUAL = 1000
+    ROBOT_AUTONOMOUS = 1000
+    ROBOT_IN_GOAL = 1000
+    ROBOT_MISSION_COMPLETED = 1000
+    ROBOT_EMERGENCY = 1000
+
 
 
     def __init__(self, 
@@ -164,6 +176,7 @@ class positionController (Node):
 
 
 
+
     def get_params(self): 
         
         self.KP_ANGULAR = self.get_parameter('kp_angular').value
@@ -172,6 +185,48 @@ class positionController (Node):
 
         self.MAX_LINEAR_VEL = self.get_parameter('max_linear_vel').value
         self.MIN_LINEAR_VEL = self.get_parameter('min_linear_vel').value
+
+
+
+        # Get global params 
+
+        self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
+        self.client.wait_for_service()
+
+        request = GetParameters.Request()
+        request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
+
+        future = self.client.call_async(request)
+        future.add_done_callback(self.callback_global_param)
+
+
+
+    
+    def callback_global_param(self, future):
+
+
+        try:
+
+            result = future.result()
+
+            self.ROBOT_MANUAL = result.values[0].integer_value
+            self.ROBOT_AUTONOMOUS = result.values[1].integer_value
+            self.ROBOT_IN_GOAL = result.values[2].integer_value
+            self.ROBOT_MISSION_COMPLETED = result.values[3].integer_value
+            self.ROBOT_EMERGENCY = result.values[4].integer_value
+
+
+            self.get_logger().info(f"Got global param ROBOT_MANUAL -> {self.ROBOT_MANUAL}")
+            self.get_logger().info(f"Got global param ROBOT_AUTONOMOUS -> {self.ROBOT_AUTONOMOUS}")
+            self.get_logger().info(f"Got global param ROBOT_IN GOAL -> {self.ROBOT_IN_GOAL}")
+            self.get_logger().info(f"Got global param ROBOT_MISSION_COMPLETED: {self.ROBOT_MISSION_COMPLETED}")
+            self.get_logger().info(f"Got global param ROBOT_EMERGENCY: {self.ROBOT_EMERGENCY}\n")
+
+
+
+        except Exception as e:
+
+            self.get_logger().warn("Service call failed %r" % (e,))
 
 
 
@@ -326,18 +381,19 @@ class positionController (Node):
         self.cmd_vel.angular.z = angular_vel.output(orientation_error)
 
 
-        if self.robot_state == 5: 
+        if self.robot_state == self.ROBOT_AUTONOMOUS: 
             
             self.vel_pub.publish(self.cmd_vel)
 
-
+    
 
 
         if debug_mode:
 
             self.get_logger().info(f"Robot pose -> x:{self.robot_pose.x} | y: {self.robot_pose.y } | theta: {self.robot_pose.theta}")
             self.get_logger().info(f"Moviment direction -> {self.movement_direction}")
-            self.get_logger().info(f"Error -> linear: {error_linear} | angular: {error_angle}\n")
+            self.get_logger().info(f"Error -> linear: {error_linear} | angular: {error_angle}")
+            self.get_logger().info(f"Velocity -> linear: {self.cmd_vel.linear.x} | angular: {self.cmd_vel.angular.z}\n")
 
 
 
@@ -366,7 +422,7 @@ def main():
     thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
     thread.start()
 
-    rate = node.create_rate(10)
+    rate = node.create_rate(1)
 
     try: 
         while rclpy.ok(): 
