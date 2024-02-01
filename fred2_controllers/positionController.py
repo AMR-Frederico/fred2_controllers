@@ -36,7 +36,10 @@ node_path = '/home/ubuntu/ros2_ws/src/fred2_controllers/config/controllers_param
 node_group = 'position_control'
 
 
+# args 
 debug_mode = "--debug" in sys.argv
+use_robot_localization = '--use-robot-localization' in sys.argv     # uses the odometry from robot_localization
+
 
 class positionController (Node): 
     
@@ -97,11 +100,27 @@ class positionController (Node):
         )
 
 
-        self.create_subscription(Odometry,
-                                '/odom', 
-                                self.odom_callback, 
-                                qos_profile)
+        if use_robot_localization: 
+            
+            self.get_logger().info('Using ROBOT LOCALIZATION odometry')
+            
+            self.create_subscription(Odometry,
+                                    '/odometry/filtered', 
+                                    self.odom_callback, 
+                                    qos_profile)
         
+
+        else: 
+            
+            self.get_logger().info('Using MOVE BASE odometry')
+            
+            self.create_subscription(Odometry,
+                                    '/odom', 
+                                    self.odom_callback, 
+                                    qos_profile)
+
+
+
 
         self.create_subscription(PoseStamped, 
                                 '/goal_manager/goal/current', 
@@ -114,6 +133,7 @@ class positionController (Node):
                                 self.robotState_callback, 
                                 qos_profile)
         
+
         
         self.vel_pub = self.create_publisher(Twist, 
                                             '/cmd_vel', 
@@ -409,7 +429,7 @@ def main():
     node = positionController(
         node_name='positionController',
         context=position_context,
-        cli_args=['--debug'],
+        cli_args=['--debug', '--use-robot-localization'],
         namespace='controllers',
         enable_rosout=False
     )
