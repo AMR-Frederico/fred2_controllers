@@ -1,10 +1,13 @@
 #!/user/bin/env python3
 
+from ament_index_python.packages import get_package_share_directory
+
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
-from ament_index_python.packages import get_package_share_directory
+from launch.actions import DeclareLaunchArgument, TimerAction, LogInfo
 from launch.substitutions import LaunchConfiguration
+
+
 
 def generate_launch_description():
     
@@ -30,5 +33,12 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+
         declare_robot_localization_odom,
-        position_controller_node])
+
+        TimerAction(period= 1.5, actions= [
+            
+            LogInfo(msg=' ######################### LAUNCHING POSITION CONTROLLER #################################### '), 
+            position_controller_node
+        ])
+    ])
