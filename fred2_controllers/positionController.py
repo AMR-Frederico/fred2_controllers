@@ -19,7 +19,7 @@ from rclpy.context import Context
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.executors import SingleThreadedExecutor
-from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy
+from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy, QoSDurabilityPolicy
 
 
 from rcl_interfaces.msg import SetParametersResult
@@ -95,8 +95,11 @@ class positionController (Node):
         # quality protocol -> the node must not lose any message 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE, 
+            durability= QoSDurabilityPolicy.TRANSIENT_LOCAL,
             history=QoSHistoryPolicy.KEEP_LAST, 
-            depth=1
+            depth=10, 
+            liveliness=QoSLivelinessPolicy.AUTOMATIC
+            
         )
 
 
@@ -119,13 +122,11 @@ class positionController (Node):
                                     self.odom_callback, 
                                     qos_profile)
 
-
-
-
+        # goal current will continuously the goal, so QoS profile won't be necessary 
         self.create_subscription(PoseStamped, 
                                 '/goal_manager/goal/current', 
                                 self.goalCurrent_callback, 
-                                qos_profile)
+                                5)
         
 
         self.create_subscription(Int16, 
@@ -137,7 +138,7 @@ class positionController (Node):
         
         self.vel_pub = self.create_publisher(Twist, 
                                             '/cmd_vel', 
-                                            qos_profile)
+                                            5)
         
 
         self.load_params(node_path, node_group)
