@@ -1,6 +1,6 @@
 position_control:
   KP_angular: 1.0
-  KI_angular: 0.0  # Make sure this is a numerical value (float or int), not a string
+  KI_angular: 0.0  
   KD_angular: 0.0
 
   max_linear_vel: 2.0
