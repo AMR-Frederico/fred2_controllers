@@ -95,7 +95,7 @@ class positionController (Node):
         # quality protocol -> the node must not lose any message 
         qos_profile = QoSProfile(
             reliability=QoSReliabilityPolicy.RELIABLE, 
-            durability= QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            durability= QoSDurabilityPolicy.VOLATILE,
             history=QoSHistoryPolicy.KEEP_LAST, 
             depth=10, 
             liveliness=QoSLivelinessPolicy.AUTOMATIC
@@ -126,7 +126,7 @@ class positionController (Node):
         self.create_subscription(PoseStamped, 
                                 '/goal_manager/goal/current', 
                                 self.goalCurrent_callback, 
-                                5)
+                                qos_profile)
         
 
         self.create_subscription(Int16, 
