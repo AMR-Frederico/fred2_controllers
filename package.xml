@@ -2,19 +2,41 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>fred2_controllers</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="leticiarp2000@hotmail.com">ubuntu</maintainer>
-  <license>TODO: License declaration</license>
+  <version>1.0.0</version>
+  <description>The Controllers package provides various controllers for the robot, including a position controller that utilizes a PID algorithm for controlling the robot's position. The primary node in this package is `positionController`, which is responsible for managing the robot's movement towards a goal position.</description>
+  
+
+  <maintainer email="ubuntu@todo.todo">Frederico</maintainer>
+  <license>MIT</license>
+
+
 
   <buildtool_depend>ament_python</buildtool_depend>
 
-  <depend>rclpy</depend>
+
+
+  <build_depend>rclpy</build_depend>
+  <build_depend>rcl_interfaces</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>std_msgs</build_depend>
+
+
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+
+
 
   <export>
     <build_type>ament_python</build_type>

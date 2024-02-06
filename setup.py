@@ -6,18 +6,20 @@ package_name = 'fred2_controllers'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='1.0.0',
     packages=[package_name],
     install_requires=[
         'setuptools',
         'rclpy',
-        'transforms3d',  # Add other dependencies as needed
+        'transforms3d',  
+        'math', 
+        'numpy', 
     ],
     zip_safe=True,
-    maintainer='ubuntu',
-    maintainer_email='leticiarp2000@hotmail.com',
-    description='ROS 2 package for position control',
-    license='TODO: License declaration',
+    maintainer='Fre',
+    maintainer_email='ubuntu@todo.todo',
+    description="The Controllers package provides various controllers for the robot, including a position controller that utilizes a PID algorithm for controlling the robot's position. The primary node in this package is positionController, which is responsible for managing the robot's movement towards a goal position.",
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
