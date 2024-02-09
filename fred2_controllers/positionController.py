@@ -12,6 +12,7 @@ import sys
 from typing import List
 
 from fred2_controllers.lib.PID import PID_controller
+
 from fred2_controllers.lib.quat_multiply import quaternion_multiply, reduce_angle
 
 from rclpy.context import Context
@@ -361,7 +362,7 @@ class positionController (Node):
         bkward_heading_error = reduce_angle(error_angle - self.bkward_pose.theta)
 
 
-        self.front_quat = self.move_front()
+        self.front_pose = self.move_front()
         front_heading_error = reduce_angle(error_angle - self.front_pose.theta)
 
 
@@ -370,7 +371,7 @@ class positionController (Node):
             self.movement_direction = -1 
             self.robot_pose = self.move_backward()
 
-            self.get_logger().info('Switching to backwards')
+            self.get_logger().warn('Switching to backwards orientation')
 
 
 
@@ -379,7 +380,7 @@ class positionController (Node):
             self.movement_direction = 1 
             self.robot_pose = self.move_front()
 
-            self.get_logger().info('Switching to foward')
+            self.get_logger().warn('Switching to foward orientation')
 
 
 
