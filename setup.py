@@ -6,14 +6,12 @@ package_name = 'fred2_controllers'
 
 setup(
     name=package_name,
-    version='1.0.0',
+    version='0.0.0',
     packages=[package_name],
     install_requires=[
         'setuptools',
         'rclpy',
         'transforms3d',  
-        'math', 
-        'numpy', 
     ],
     zip_safe=True,
     maintainer='Fre',

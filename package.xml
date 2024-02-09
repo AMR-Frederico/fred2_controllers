@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>fred2_controllers</name>
-  <version>1.0.0</version>
+  <version>0.0.0</version>
   <description>The Controllers package provides various controllers for the robot, including a position controller that utilizes a PID algorithm for controlling the robot's position. The primary node in this package is `positionController`, which is responsible for managing the robot's movement towards a goal position.</description>
   
 
