@@ -1,3 +1,4 @@
 .vscode
 fred2_controllers/__pycache__/
 fred2_controllers/lib/__pycache__/
+fred2_controllers.egg-info
