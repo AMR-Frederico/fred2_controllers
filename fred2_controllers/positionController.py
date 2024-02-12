@@ -42,6 +42,9 @@ debug_mode = "--debug" in sys.argv
 use_robot_localization = '--use-robot-localization' in sys.argv     # uses the odometry from robot_localization
 
 
+ros2_ws_path = os.path.expanduser('~/ros2_ws')
+sys.path.append(os.path.join(ros2_ws_path, 'src'))
+
 class positionController (Node): 
     
     odom_pose = Pose()
@@ -444,7 +447,7 @@ def main():
     thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
     thread.start()
 
-    rate = node.create_rate(1)
+    rate = node.create_rate(7)
 
     try: 
         while rclpy.ok(): 

@@ -7,7 +7,7 @@ package_name = 'fred2_controllers'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=[package_name],
+    packages=[package_name, f'{package_name}.lib'],
     install_requires=[
         'setuptools',
         'rclpy',
