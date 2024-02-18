@@ -198,14 +198,14 @@ class positionController (Node):
 
         # Get global params 
 
-        # self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
-        # self.client.wait_for_service()
+        self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
+        self.client.wait_for_service()
 
-        # request = GetParameters.Request()
-        # request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
+        request = GetParameters.Request()
+        request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
 
-        # future = self.client.call_async(request)
-        # future.add_done_callback(self.callback_global_param)
+        future = self.client.call_async(request)
+        future.add_done_callback(self.callback_global_param)
 
 
 
