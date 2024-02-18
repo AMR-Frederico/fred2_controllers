@@ -14,6 +14,8 @@ def generate_launch_description():
         executable='positionController',
         name='positionController',
         output='screen',
+        parameters=[{'use_sim_time': False}]
+
 
     )
 
