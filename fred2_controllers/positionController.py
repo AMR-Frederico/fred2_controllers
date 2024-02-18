@@ -39,8 +39,6 @@ node_group = 'position_control'
 
 # args 
 debug_mode = "--debug" in sys.argv
-use_robot_localization = '--use-robot-localization' in sys.argv     # uses the odometry from robot_localization
-
 
 ros2_ws_path = os.path.expanduser('~/ros2_ws')
 sys.path.append(os.path.join(ros2_ws_path, 'src'))
@@ -105,28 +103,13 @@ class positionController (Node):
             liveliness=QoSLivelinessPolicy.AUTOMATIC
             
         )
+                    
+        self.create_subscription(Odometry,
+                                '/odom', 
+                                self.odom_callback, 
+                                qos_profile)
 
 
-        if use_robot_localization: 
-            
-            self.get_logger().info('Using ROBOT LOCALIZATION odometry')
-            
-            self.create_subscription(Odometry,
-                                    '/odometry/filtered', 
-                                    self.odom_callback, 
-                                    qos_profile)
-        
-
-        else: 
-            
-            self.get_logger().info('Using MOVE BASE odometry')
-            
-            self.create_subscription(Odometry,
-                                    '/odom', 
-                                    self.odom_callback, 
-                                    qos_profile)
-
-        # goal current will continuously the goal, so QoS profile won't be necessary 
         self.create_subscription(PoseStamped, 
                                 '/goal_manager/goal/current', 
                                 self.goalCurrent_callback, 
@@ -215,14 +198,14 @@ class positionController (Node):
 
         # Get global params 
 
-        self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
-        self.client.wait_for_service()
+        # self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
+        # self.client.wait_for_service()
 
-        request = GetParameters.Request()
-        request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
+        # request = GetParameters.Request()
+        # request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
 
-        future = self.client.call_async(request)
-        future.add_done_callback(self.callback_global_param)
+        # future = self.client.call_async(request)
+        # future.add_done_callback(self.callback_global_param)
 
 
 
@@ -434,7 +417,7 @@ def main():
     node = positionController(
         node_name='positionController',
         context=position_context,
-        cli_args=['--debug', '--use-robot-localization'],
+        cli_args=['--debug'],
         namespace='controllers',
         enable_rosout=False
     )
