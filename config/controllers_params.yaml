@@ -1,7 +1,13 @@
 position_control:
-  KP_angular: 1.0
-  KI_angular: 0.0  
+  KP_angular: 15.0
+  KI_angular: 5.0  
   KD_angular: 0.0
 
-  max_linear_vel: 2.0
+  KP_linear: 1.0
+  KI_linear: 0.0
+  KD_linear: 0.0
+
+  max_linear_vel: 1.8
   min_linear_vel: 0.0
+
+  debug: False

@@ -161,6 +161,10 @@ class positionController (Node):
         if param.name == 'min_linear_vel': 
             self.MIN_LINEAR_VEL = param.value
 
+        
+        if param.name == 'debug': 
+            self.DEBUG = param.value
+
 
         return SetParametersResult(successful=True)
 
@@ -193,6 +197,8 @@ class positionController (Node):
 
         self.MAX_LINEAR_VEL = self.get_parameter('max_linear_vel').value
         self.MIN_LINEAR_VEL = self.get_parameter('min_linear_vel').value
+
+        self.DEBUG = self.get_parameter('debug').value
 
 
 
@@ -396,12 +402,12 @@ class positionController (Node):
     
 
 
-        if debug_mode:
+        if debug_mode or self.DEBUG:
 
             self.get_logger().info(f"Robot pose -> x:{self.robot_pose.x} | y: {self.robot_pose.y } | theta: {self.robot_pose.theta}")
             self.get_logger().info(f"Moviment direction -> {self.movement_direction}")
             self.get_logger().info(f"Error -> linear: {error_linear} | angular: {error_angle}")
-            self.get_logger().info(f"Velocity -> linear: {self.cmd_vel.linear.x} | angular: {self.cmd_vel.angular.z}\n")
+            self.get_logger().info(f"Velocity -> publish: {self.robot_state == self.ROBOT_AUTONOMOUS} | linear: {self.cmd_vel.linear.x} | angular: {self.cmd_vel.angular.z}\n")
 
 
 
