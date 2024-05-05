@@ -136,7 +136,7 @@ class positionController (Node):
             ]
         )
 
-        self.get_logger().info('All parameters sucefully declared')
+        self.get_logger().info('All parameters successfully declared')
 
     # this function update the paramets value changed by ros2 param set
     def parameters_callback(self, params):  
