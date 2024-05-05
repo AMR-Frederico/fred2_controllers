@@ -4,10 +4,7 @@ import rclpy
 import transforms3d as tf3d     # angle manipulaton 
 import threading 
 import math
-import os 
-import yaml 
 import sys
-
 
 from typing import List
 
@@ -17,31 +14,20 @@ from fred2_controllers.lib.quat_multiply import quaternion_multiply, reduce_angl
 
 from rclpy.context import Context
 
-from rclpy.node import Node
-from rclpy.parameter import Parameter
+from rclpy.node import Node, ParameterDescriptor
+from rclpy.parameter import Parameter, ParameterType
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy, QoSDurabilityPolicy
 
-
 from rcl_interfaces.msg import SetParametersResult
 from rcl_interfaces.srv import GetParameters
-
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose2D, PoseStamped, Pose, Quaternion, Twist
 from std_msgs.msg import Int16 
 
-
-# Parameters file (yaml)
-node_path = '/home/ubuntu/ros2_ws/src/fred2_controllers/config/controllers_params.yaml'
-node_group = 'position_control'
-
-
 # args 
 debug_mode = "--debug" in sys.argv
-
-ros2_ws_path = os.path.expanduser('~/ros2_ws')
-sys.path.append(os.path.join(ros2_ws_path, 'src'))
 
 class positionController (Node): 
     
@@ -121,25 +107,42 @@ class positionController (Node):
                                 self.robotState_callback, 
                                 qos_profile)
         
-
         
         self.vel_pub = self.create_publisher(Twist, 
                                             '/cmd_vel', 
                                             5)
         
-
-        self.load_params(node_path, node_group)
+        self.load_params()
         self.get_params()
 
         self.add_on_set_parameters_callback(self.parameters_callback)
 
 
+    def load_params(self): 
+        
+        self.declare_parameters(
+            namespace='',
+            parameters=[
+                ('kp_angular', None, ParameterDescriptor(description='Proportional gain for angular movement', type=ParameterType.PARAMETER_DOUBLE)),
+                ('ki_angular', None, ParameterDescriptor(description='Integrative gain for angular movement', type=ParameterType.PARAMETER_DOUBLE)),
+                ('kd_angular', None, ParameterDescriptor(description='Derivative gain for angular movement', type=ParameterType.PARAMETER_DOUBLE)),
+                ('kp_linear', None, ParameterDescriptor(description='Proportional gain for linear movement', type=ParameterType.PARAMETER_DOUBLE)),
+                ('ki_linear', None, ParameterDescriptor(description='Integrative gain for linear movement', type=ParameterType.PARAMETER_DOUBLE)),
+                ('kd_linear', None, ParameterDescriptor(description='Derivative gain for linear movement', type=ParameterType.PARAMETER_DOUBLE)),
+                ('max_linear_vel', None, ParameterDescriptor(description='Max linear velocity in a straight line', type=ParameterType.PARAMETER_DOUBLE)),
+                ('min_linear_vel', None, ParameterDescriptor(description='Min linear speed for rotational movement', type=ParameterType.PARAMETER_DOUBLE)),
+                ('debug', None, ParameterDescriptor(description='Enable debug prints', type=ParameterType.PARAMETER_BOOL)), 
+                ('unit_test', None, ParameterDescriptor(description='Allows the node to run isolated', type=ParameterType.PARAMETER_BOOL)),
+            ]
+        )
 
-    def parameters_callback(self, params):
+        self.get_logger().info('All parameters sucefully declared')
+
+    # this function update the paramets value changed by ros2 param set
+    def parameters_callback(self, params):  
         
         for param in params:
             self.get_logger().info(f"Parameter '{param.name}' changed to: {param.value}")
-
 
 
         if param.name == 'kp_angular':
@@ -164,31 +167,16 @@ class positionController (Node):
         
         if param.name == 'debug': 
             self.DEBUG = param.value
+        
+
+        if param.name == 'unit_test': 
+            self.UNIT_TEST = param.value
 
 
         return SetParametersResult(successful=True)
 
 
-
-    def load_params(self, path, group): 
-        param_path = os.path.expanduser(path)
-
-        with open(param_path, 'r') as params_list: 
-            params = yaml.safe_load(params_list)
-        
-        # Get the params inside the specified group
-        params = params.get(group, {})
-
-        # Declare parameters with values from the YAML file
-        for param_name, param_value in params.items():
-            # Adjust parameter name to lowercase
-            param_name_lower = param_name.lower()
-            self.declare_parameter(param_name_lower, param_value)
-            self.get_logger().info(f'{param_name_lower}: {param_value}')
-
-
-
-
+    # get the param value from the yaml file
     def get_params(self): 
         
         self.KP_ANGULAR = self.get_parameter('kp_angular').value
@@ -199,23 +187,32 @@ class positionController (Node):
         self.MIN_LINEAR_VEL = self.get_parameter('min_linear_vel').value
 
         self.DEBUG = self.get_parameter('debug').value
+        self.UNIT_TEST = self.get_parameter('unit_test').value
+
+
+        # if the unit test is active, it disabled the global param from machine states 
+        if self.UNIT_TEST: 
+            
+            self.robot_state = 2
+            self.get_logger().info('In UNIT TEST mode')  
+
+        
+        else: 
+
+            # Get global params 
+            self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
+            self.client.wait_for_service()
+
+            request = GetParameters.Request()
+            request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
+
+            future = self.client.call_async(request)
+            future.add_done_callback(self.callback_global_param)
+        
 
 
 
-        # Get global params 
-
-        self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
-        self.client.wait_for_service()
-
-        request = GetParameters.Request()
-        request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
-
-        future = self.client.call_async(request)
-        future.add_done_callback(self.callback_global_param)
-
-
-
-    
+    # get the global values from the machine states params 
     def callback_global_param(self, future):
 
 
@@ -247,7 +244,6 @@ class positionController (Node):
     def robotState_callback(self, state): 
 
         self.robot_state = state.data
-
 
 
 
@@ -447,6 +443,7 @@ def main():
         pass
 
     rclpy.shutdown()
+    node.destroy_node()
     thread.join()
 
 

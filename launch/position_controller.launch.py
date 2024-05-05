@@ -6,7 +6,15 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import LogInfo, TimerAction
 
+import os
+
 def generate_launch_description():
+    
+    config = os.path.join(
+        get_package_share_directory('fred2_controllers'),
+        'config',
+        'controllers_params.yaml'
+        )
     
     position_controller_node = Node(
         
@@ -14,7 +22,7 @@ def generate_launch_description():
         executable='positionController',
         name='positionController',
         output='screen',
-        parameters=[{'use_sim_time': False}]
+        parameters=[config]
 
 
     )

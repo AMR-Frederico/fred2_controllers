@@ -34,14 +34,8 @@ pip install transforms3d
 
 ### Launch
 
-**Considering `Robot Localization` for odometry and `Robot Descriptor` for publish the TFs:**
 ```
-ros2 launch fred2_controllers position_for_robot_localization.launch.py
-```
-
-**Considering `Move Base Odometry` to publish odom and TF:**
-```
-ros2 launch fred2_controllers position_for_move_base_odom.launch.py
+ros2 launch fred2_controllers position_controller.launch.py
 ```
 
 --- 
@@ -56,16 +50,47 @@ One notable feature of the `positionController` node is its capability to dynami
 
 ### Parameters: 
 
-- `KP_angular`: Proportional gain for angular control in the PID algorithm.
+- `kp_angular`: Proportional gain for angular control in the PID algorithm.
 
-- `KI_angular`: Integral gain for angular control in the PID algorithm.
+- `ki_angular`: Integral gain for angular control in the PID algorithm.
 
-- `KD_angular`: Derivative gain for angular control in the PID algorithm.
+- `kd_angular`: Derivative gain for angular control in the PID algorithm.
+
+- `kp_linear`: Proportional gain for linear control in the PID algorithm.
+
+- `ki_linear`: Integral gain for linear control in the PID algorithm.
+
+- `kd_linear`: Derivative gain for linear control in the PID algorithm.
 
 - `max_linear_vel`: Maximum linear velocity allowed for the robot.
 
 - `min_linear_vel`: Minimum linear velocity allowed for the robot.
 
+- `debug`: Enables the debug prints.
+
+- `unit_test`: Allows the node to run isolated .
+
+
+#### To check available parameters 
+```
+ros2 param list 
+```
+
+#### To check the parameter description
+```
+ros2 param describe /controllers/positionController <parameter name>
+
+```
+
+#### To check the parameter value
+```
+ros2 param get /controllers/positionController <parameter name>
+```
+
+#### To reload the parameters file
+```
+ros2 param load /controllers/positionController <path-to-parameter-config-file>
+```
 
 ---
 
@@ -73,7 +98,7 @@ One notable feature of the `positionController` node is its capability to dynami
 
 - **Subscribers:**
 
-  - `/odometry/filtered` (or `/odom`) (*nav_msgs/Odometry*): Odometry information from the robot (MOVE BASE or ROBOT LOCALIZATION).
+  - `/odom` (*nav_msgs/Odometry*): Odometry information from the robot
 
   - `/goal_manager/goal/current` (*geometry_msgs/PoseStamped*): Current goal information.
 
@@ -90,7 +115,8 @@ One notable feature of the `positionController` node is its capability to dynami
 **Default:**
 
 ```
-ros2 run fred2_controllers positionController
+ros2 run fred2_controllers positionController --ros-args --params-file /home/ubuntu/ros2_ws/src/fred2_controllers/config/controllers_params.yaml
+ 
 ```
 
 **Enable debug:**
