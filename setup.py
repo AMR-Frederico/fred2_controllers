@@ -22,6 +22,9 @@ setup(
     entry_points={
         'console_scripts': [
             'positionController = fred2_controllers.positionController:main',
+            'lifecycle_manager = fred2_controllers.lifecycle_manager:main',
+            'lifecycle_node = fred2_controllers.lifecycle_node:main',
+
         ],
     },
     data_files=[
