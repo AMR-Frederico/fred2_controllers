@@ -18,4 +18,5 @@
     # Debug / test condition 
     use_sim_time: false   # Use time from simulation
     debug: false          # Enable prints 
-    unit_test: false      # Disable dependences from another nodes 
+    unit_test: true      # Disable dependences from another nodes 
+    frequency: 10         # Node frequency 
