@@ -6,6 +6,8 @@ import threading
 import math
 import sys
 
+import subscribers
+
 from typing import List
 
 from fred2_controllers.lib.PID import PID_controller
@@ -100,28 +102,6 @@ class positionController (Node):
             depth=10,                                   # Set the depth of the history buffer to 10, specifying the number of stored past messages
             liveliness=QoSLivelinessPolicy.AUTOMATIC    # Set the liveliness policy to AUTOMATIC, allowing automatic management of liveliness 
     )
-    
-
-    def setup_subscribers(self): 
-        
-        
-        # ------ Get robot current pose  
-        self.create_subscription(Odometry,
-                                '/odom', 
-                                self.odom_callback, 
-                                self.qos_profile)
-
-        # ------ Get current goal 
-        self.create_subscription(PoseStamped, 
-                                '/goal_manager/goal/current', 
-                                self.goalCurrent_callback, 
-                                self.qos_profile)
-        
-        # ----- Get robot current state 
-        self.create_subscription(Int16, 
-                                '/machine_states/robot_state', 
-                                self.robotState_callback, 
-                                self.qos_profile)
         
     def setup_publishers(self): 
 
@@ -303,36 +283,7 @@ class positionController (Node):
             self.get_logger().warn("Service call failed %r" % (e,))
 
 
-    # Get robot current state 
-    def robotState_callback(self, state): 
 
-        self.robot_state = state.data
-
-
-    # Get current goal 
-    def goalCurrent_callback(self, goal): 
-
-        self.goal_pose.x = goal.pose.position.x 
-        self.goal_pose.y = goal.pose.position.y 
-        
-        # get yaw angle 
-        self.goal_pose.theta = tf3d.euler.quat2euler([goal.pose.orientation.w, 
-                                                    goal.pose.orientation.x, 
-                                                    goal.pose.orientation.y, 
-                                                    goal.pose.orientation.z])[2]
-
-
-    # Get robot current positiion 
-    def odom_callback(self, odom_msg): 
-
-        self.odom_pose.position.x = odom_msg.pose.pose.position.x 
-        self.odom_pose.position.y = odom_msg.pose.pose.position.y
-        self.odom_pose.position.z = odom_msg.pose.pose.position.z 
-
-        self.odom_pose.orientation.w = odom_msg.pose.pose.orientation.w
-        self.odom_pose.orientation.x = odom_msg.pose.pose.orientation.x 
-        self.odom_pose.orientation.y = odom_msg.pose.pose.orientation.y 
-        self.odom_pose.orientation.z = odom_msg.pose.pose.orientation.z 
         
 
     
