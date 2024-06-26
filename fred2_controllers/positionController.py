@@ -6,7 +6,9 @@ import threading
 import math
 import sys
 
-import subscribers
+import fred2_controllers.subscribers as subscribers
+import fred2_controllers.publishers as publishers 
+import fred2_controllers.parameters as param
 
 from typing import List
 
@@ -16,17 +18,11 @@ from fred2_controllers.lib.quat_multiply import quaternion_multiply, reduce_angl
 
 from rclpy.context import Context
 
-from rclpy.node import Node, ParameterDescriptor
-from rclpy.parameter import Parameter, ParameterType
+from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.executors import SingleThreadedExecutor
-from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy, QoSDurabilityPolicy
 
-from rcl_interfaces.msg import SetParametersResult
-from rcl_interfaces.srv import GetParameters
-
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Pose2D, PoseStamped, Pose, Quaternion, Twist
-from std_msgs.msg import Int16 
+from geometry_msgs.msg import Pose2D, Pose, Quaternion, Twist
 
 # args 
 debug_mode = "--debug" in sys.argv
@@ -82,212 +78,19 @@ class positionController (Node):
                         start_parameter_services=start_parameter_services, 
                         parameter_overrides=parameter_overrides)
         
-        self.quality_protocol()
-        self.setup_subscribers()
-        self.setup_publishers()
 
-        self.load_params()
-        self.get_params()
+        # ---------- Node configuration
+        subscribers.config(self)
+        publishers.config(self)
 
-        self.add_on_set_parameters_callback(self.parameters_callback)    
+        param.load_params(self) 
+        param.get_params(self)
 
-
-
-    def quality_protocol(self):
-
-        self.qos_profile = QoSProfile(
-            reliability=QoSReliabilityPolicy.RELIABLE,  # Set the reliability policy to RELIABLE, ensuring reliable message delivery
-            durability= QoSDurabilityPolicy.VOLATILE,   # Set the durability policy to VOLATILE, indicating messages are not stored persistently
-            history=QoSHistoryPolicy.KEEP_LAST,         # Set the history policy to KEEP_LAST, storing a limited number of past messages
-            depth=10,                                   # Set the depth of the history buffer to 10, specifying the number of stored past messages
-            liveliness=QoSLivelinessPolicy.AUTOMATIC    # Set the liveliness policy to AUTOMATIC, allowing automatic management of liveliness 
-    )
-        
-    def setup_publishers(self): 
-
-        # ----- Publish velocity command for reaches the goal 
-        self.vel_pub = self.create_publisher(Twist, '/cmd_vel', 5)
-        
-
-    # Declare params from the yaml file 
-    def load_params(self): 
-        
-        self.declare_parameters(
-            namespace='',
-            parameters=[
-                ('kp_angular', None, 
-                    ParameterDescriptor(
-                        description='Proportional gain for angular movement', 
-                        type=ParameterType.PARAMETER_DOUBLE)),
-
-                ('ki_angular', None, 
-                    ParameterDescriptor(
-                        description='Integrative gain for angular movement', 
-                        type=ParameterType.PARAMETER_DOUBLE)),
-
-                ('kd_angular', None, 
-                    ParameterDescriptor(
-                        description='Derivative gain for angular movement', 
-                        type=ParameterType.PARAMETER_DOUBLE)),
-
-                ('kp_linear', None, 
-                    ParameterDescriptor(
-                        description='Proportional gain for linear movement', 
-                        type=ParameterType.PARAMETER_DOUBLE)),
-
-                ('ki_linear', None, 
-                    ParameterDescriptor(
-                        description='Integrative gain for linear movement', 
-                        type=ParameterType.PARAMETER_DOUBLE)),
-
-                ('kd_linear', None, 
-                    ParameterDescriptor(
-                        description='Derivative gain for linear movement', 
-                        type=ParameterType.PARAMETER_DOUBLE)),
-
-                ('max_linear_vel', None, 
-                    ParameterDescriptor(
-                        description='Max linear velocity in a straight line', 
-                        type=ParameterType.PARAMETER_DOUBLE)),
-
-                ('min_linear_vel', None, 
-                    ParameterDescriptor(
-                        description='Min linear speed for rotational movement', 
-                        type=ParameterType.PARAMETER_DOUBLE)),
-
-                ('debug', None, 
-                    ParameterDescriptor(
-                        description='Enable debug prints', 
-                        type=ParameterType.PARAMETER_BOOL)), 
-
-                ('frequency', None, 
-                    ParameterDescriptor(
-                        description='Node frequency', 
-                        type=ParameterType.PARAMETER_INTEGER)),
-
-                ('unit_test', None, 
-                    ParameterDescriptor(
-                        description='Allows the node to run isolated', 
-                        type=ParameterType.PARAMETER_BOOL)),
-            ]
-        )
-
-        self.get_logger().info('All parameters successfully declared')
-
-
-    # updates the parameters when they are changed by the command line
-    def parameters_callback(self, params):  
-        
-        for param in params:
-            self.get_logger().info(f"Parameter '{param.name}' changed to: {param.value}")
-
-
-        if param.name == 'kp_angular':
-            self.KP_ANGULAR = param.value
-    
-  
-        if param.name == 'kd_angular':
-            self.KD_ANGULAR = param.value
-
-
-        if param.name == 'ki_angular': 
-            self.KI_ANGULAR = param.value
-
-
-        if param.name == 'max_linear_vel': 
-            self.MAX_LINEAR_VEL = param.value
-        
-
-        if param.name == 'min_linear_vel': 
-            self.MIN_LINEAR_VEL = param.value
-
-        
-        if param.name == 'debug': 
-            self.DEBUG = param.value
-        
-
-        if param.name == 'unit_test': 
-            self.UNIT_TEST = param.value
-        
-
-        if param.name == 'frequency': 
-            self.FREQUENCY = param.value 
-
-
-        return SetParametersResult(successful=True)
-
-
-    # get the param value from the yaml file
-    def get_params(self): 
-        
-        self.KP_ANGULAR = self.get_parameter('kp_angular').value
-        self.KI_ANGULAR = self.get_parameter('ki_angular').value
-        self.KD_ANGULAR = self.get_parameter('kd_angular').value
-
-        self.MAX_LINEAR_VEL = self.get_parameter('max_linear_vel').value
-        self.MIN_LINEAR_VEL = self.get_parameter('min_linear_vel').value
-
-        self.DEBUG = self.get_parameter('debug').value
-        self.UNIT_TEST = self.get_parameter('unit_test').value
-        self.FREQUENCY = self.get_parameter('frequency').value
+        self.add_on_set_parameters_callback(param.parameters_callback)    
 
 
 
-        # if the unit test is active, it disabled the global param from machine states 
-        if self.UNIT_TEST: 
-            
-            self.robot_state = 2
-            self.get_logger().info('In UNIT TEST mode')  
 
-        
-        else: 
-
-            # Get global params 
-            self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
-            self.client.wait_for_service()
-
-            request = GetParameters.Request()
-            request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
-
-            future = self.client.call_async(request)
-            future.add_done_callback(self.callback_global_param)
-        
-
-
-
-    # get the global values from the machine states params 
-    def callback_global_param(self, future):
-
-
-        try:
-
-            result = future.result()
-
-            self.ROBOT_MANUAL = result.values[0].integer_value
-            self.ROBOT_AUTONOMOUS = result.values[1].integer_value
-            self.ROBOT_IN_GOAL = result.values[2].integer_value
-            self.ROBOT_MISSION_COMPLETED = result.values[3].integer_value
-            self.ROBOT_EMERGENCY = result.values[4].integer_value
-
-
-            self.get_logger().info(f"Got global param ROBOT_MANUAL -> {self.ROBOT_MANUAL}")
-            self.get_logger().info(f"Got global param ROBOT_AUTONOMOUS -> {self.ROBOT_AUTONOMOUS}")
-            self.get_logger().info(f"Got global param ROBOT_IN GOAL -> {self.ROBOT_IN_GOAL}")
-            self.get_logger().info(f"Got global param ROBOT_MISSION_COMPLETED: {self.ROBOT_MISSION_COMPLETED}")
-            self.get_logger().info(f"Got global param ROBOT_EMERGENCY: {self.ROBOT_EMERGENCY}\n")
-
-
-
-        except Exception as e:
-
-            self.get_logger().warn("Service call failed %r" % (e,))
-
-
-
-        
-
-    
-    
     def move_backward(self): 
 
         # Convert 180-degree rotation to quaternion
@@ -344,7 +147,6 @@ class positionController (Node):
         
 
         return front_pose
-
 
 
 

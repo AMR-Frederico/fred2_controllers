@@ -1,29 +1,12 @@
-from rclpy.node import Node
+
+import transforms3d as tf3d     # angle manipulaton 
+import fred2_controllers.qos as qos
+
+from rclpy.node import Node 
+
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import PoseStamped, Twist
+from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Int16
-from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy, QoSDurabilityPolicy
-
-
-########################################################
-# --------------- Set QoS  
-########################################################
-
-def quality_protocol():
-
-    qos_profile = QoSProfile(
-        reliability=QoSReliabilityPolicy.RELIABLE,  # Set the reliability policy to RELIABLE, ensuring reliable message delivery
-        durability= QoSDurabilityPolicy.VOLATILE,   # Set the durability policy to VOLATILE, indicating messages are not stored persistently
-        history=QoSHistoryPolicy.KEEP_LAST,         # Set the history policy to KEEP_LAST, storing a limited number of past messages
-        depth=10,                                   # Set the depth of the history buffer to 10, specifying the number of stored past messages
-        liveliness=QoSLivelinessPolicy.AUTOMATIC    # Set the liveliness policy to AUTOMATIC, allowing automatic management of liveliness 
-    )
-
-    return qos_profile
-
-
-
-
 
 
 ########################################################
@@ -31,27 +14,27 @@ def quality_protocol():
 ########################################################
 
 
-def setup_subscribers(node: Node): 
+def config(node: Node): 
 
-    qos_profile = quality_protocol()
+    qos_profile = qos.general_config()
     
     
     # ------ Get robot current pose  
     node.create_subscription(Odometry,
                             '/odom', 
-                            node.odom_callback, 
+                            lambda msg: odom_callback(node, msg), 
                             qos_profile)
 
     # ------ Get current goal 
     node.create_subscription(PoseStamped, 
                             '/goal_manager/goal/current', 
-                            node.goalCurrent_callback, 
+                            lambda msg: goalCurrent_callback(node, msg), 
                             qos_profile)
     
     # ----- Get robot current state 
     node.create_subscription(Int16, 
                             '/machine_states/robot_state', 
-                            node.robotState_callback, 
+                            lambda msg: robotState_callback(node, msg), 
                             qos_profile)
 
 
