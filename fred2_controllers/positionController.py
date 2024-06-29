@@ -9,6 +9,7 @@ import sys
 import fred2_controllers.subscribers as subscribers
 import fred2_controllers.publishers as publishers 
 import fred2_controllers.parameters as param
+import fred2_controllers.debug as debug
 
 from typing import List
 
@@ -166,17 +167,17 @@ class positionController (Node):
         dx = self.goal_pose.x - self.robot_pose.x 
         dy = self.goal_pose.y - self.robot_pose.y 
 
-        error_linear = math.hypot(dx, dy)
-        error_angle = math.atan2(dy, dx)
+        self.error_linear = math.hypot(dx, dy)
+        self.error_angle = math.atan2(dy, dx)
 
         # Calculate heading errors for backward movement
         self.bkward_pose = self.move_backward()
-        bkward_heading_error = reduce_angle(error_angle - self.bkward_pose.theta)
+        bkward_heading_error = reduce_angle(self.error_angle - self.bkward_pose.theta)
 
 
         # Calculate heading errors for forward movement
         self.front_pose = self.move_front()
-        front_heading_error = reduce_angle(error_angle - self.front_pose.theta)
+        front_heading_error = reduce_angle(self.error_angle - self.front_pose.theta)
 
 
         # Switch movement direction if necessary to minimize heading error
@@ -198,7 +199,7 @@ class positionController (Node):
 
 
         # Calculate orientation error
-        orientation_error = reduce_angle(error_angle - self.robot_pose.theta)
+        orientation_error = reduce_angle(self.error_angle - self.robot_pose.theta)
 
 
         # Calculate angular velocity using PID controller
@@ -206,7 +207,7 @@ class positionController (Node):
 
 
         # Calculate linear velocity based on orientation error
-        if error_linear != 0:
+        if self.error_linear != 0:
 
             self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
         
@@ -227,11 +228,7 @@ class positionController (Node):
 
         if debug_mode or self.DEBUG:
 
-            self.get_logger().info(f"Robot pose -> x:{self.robot_pose.x} | y: {self.robot_pose.y } | theta: {self.robot_pose.theta}")
-            self.get_logger().info(f"Moviment direction -> {self.movement_direction}")
-            self.get_logger().info(f"Error -> linear: {error_linear} | angular: {error_angle}")
-            self.get_logger().info(f"Velocity -> publish: {self.robot_state == self.ROBOT_AUTONOMOUS} | linear: {self.cmd_vel.linear.x} | angular: {self.cmd_vel.angular.z}\n")
-
+            debug.main(self)
 
 
 def main(): 

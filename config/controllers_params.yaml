@@ -18,6 +18,6 @@
     # Debug / test condition 
     use_sim_time: false   # Use time from simulation
     debug: true          # Enable prints 
-    frequency: 10         # Node frequency 
+    frequency: 1         # Node frequency 
     
     use_global_params: false      # Disable dependences from another nodes 

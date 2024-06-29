@@ -4,7 +4,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist 
 
 ########################################################
-# --------------- Set subscribers 
+# --------------- Set publishers 
 ########################################################
 
 def config(node: Node): 
