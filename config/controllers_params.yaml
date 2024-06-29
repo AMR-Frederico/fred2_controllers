@@ -20,4 +20,4 @@
     debug: true          # Enable prints 
     frequency: 1         # Node frequency 
     
-    use_global_params: false      # Disable dependences from another nodes 
+    use_global_params: true      # Disable dependences from another nodes 

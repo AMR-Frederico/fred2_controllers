@@ -53,8 +53,7 @@ class positionController (Node):
     # starts with randon value 
     ROBOT_MANUAL = 1000
     ROBOT_AUTONOMOUS = 1000
-    ROBOT_IN_GOAL = 1000
-    ROBOT_MISSION_COMPLETED = 1000
+    ROBOT_INIT = 1000
     ROBOT_EMERGENCY = 1000
 
 
@@ -224,6 +223,11 @@ class positionController (Node):
         if self.robot_state == self.ROBOT_AUTONOMOUS: 
             
             self.vel_pub.publish(self.cmd_vel)
+
+        else: 
+
+            self.get_logger().warn('Controller deactivated, not in autonomous mode !!!!! ')
+
 
 
         if debug_mode or self.DEBUG:

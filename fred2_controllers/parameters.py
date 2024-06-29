@@ -135,14 +135,14 @@ def get_params(node: Node):
     if node.GLOBAL_PARAMS: 
 
         # Get global params 
-        node.client = node.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
+        node.client = node.create_client(GetParameters, '/main_robot/operation_modes/get_parameters')
         node.client.wait_for_service()
 
         request = GetParameters.Request()
-        request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
+        request.names = ['init', 'manual', 'autonomous', 'emergency']
 
         future = node.client.call_async(request)
-        future.add_done_callback(node.callback_global_param)
+        future.add_done_callback(lambda future: callback_global_param(node, future))
     
 
     else: 
@@ -159,18 +159,15 @@ def callback_global_param(node: Node, future):
 
         result = future.result()
 
-        node.ROBOT_MANUAL = result.values[0].integer_value
-        node.ROBOT_AUTONOMOUS = result.values[1].integer_value
-        node.ROBOT_IN_GOAL = result.values[2].integer_value
-        node.ROBOT_MISSION_COMPLETED = result.values[3].integer_value
-        node.ROBOT_EMERGENCY = result.values[4].integer_value
+        node.ROBOT_INIT = result.values[0].integer_value
+        node.ROBOT_MANUAL = result.values[1].integer_value
+        node.ROBOT_AUTONOMOUS = result.values[2].integer_value
+        node.ROBOT_EMERGENCY = result.values[3].integer_value
 
-
+        node.get_logger().info(f"Got global param ROBOT_EMERGENCY: {node.ROBOT_EMERGENCY}\n")
+        node.get_logger().info(f"Got global param ROBOT_INIT -> {node.ROBOT_INIT}")
         node.get_logger().info(f"Got global param ROBOT_MANUAL -> {node.ROBOT_MANUAL}")
         node.get_logger().info(f"Got global param ROBOT_AUTONOMOUS -> {node.ROBOT_AUTONOMOUS}")
-        node.get_logger().info(f"Got global param ROBOT_IN GOAL -> {node.ROBOT_IN_GOAL}")
-        node.get_logger().info(f"Got global param ROBOT_MISSION_COMPLETED: {node.ROBOT_MISSION_COMPLETED}")
-        node.get_logger().info(f"Got global param ROBOT_EMERGENCY: {node.ROBOT_EMERGENCY}\n")
 
 
 
