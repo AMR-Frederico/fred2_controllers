@@ -37,19 +37,28 @@ def config(node: Node):
                             lambda msg: robotState_callback(node, msg), 
                             qos_profile)
 
-
+    # ----- Get autonomous robot state
+    node.create_subscription(Int16, 
+                             '/main_robot/autonomous_state'
+                             lambda msg: autonomousState_callback(node, msg),
+                             qos_profile)
 
 
 ########################################################
 # ------------- Get callbacks 
 ########################################################
 
+# Get autonomous state 
+def autonomousState_callback(node: Node, state): 
+
+    node.autonomous_state = state.data 
+
+
 
 # Get robot current state 
 def robotState_callback(node: Node, state): 
 
     node.robot_state = state.data
-
 
 
 
