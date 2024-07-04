@@ -1,9 +1,10 @@
+
 /controllers/positionController:
   ros__parameters:
 
     # PID controller for the angular velocity
-    kp_angular: 15.0      # Proporcional gain 
-    ki_angular: 5.0       # Integrative gain 
+    kp_angular: 1.0      # Proporcional gain 
+    ki_angular: 0.0       # Integrative gain 
     kd_angular: 0.0       # Derivative gain 
 
     # PID controller for the linear velocity
@@ -17,7 +18,7 @@
     
     # Debug / test condition 
     use_sim_time: false   # Use time from simulation
-    debug: true          # Enable prints 
-    frequency: 1         # Node frequency 
+    debug: false          # Enable prints 
+    frequency: 6         # Node frequency 
     
     use_global_params: true      # Disable dependences from another nodes 
