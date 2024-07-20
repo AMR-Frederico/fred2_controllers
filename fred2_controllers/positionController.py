@@ -35,6 +35,7 @@ class positionController (Node):
 
     goal_pose = Pose2D()                        # Goal position for the robot to navigate towards
     robot_state = -1                            # Current state of the robot, starts in random value
+    autonomous_state = -1                       # Current state of the autonomous machine states 
 
     movement_direction = 1                      # Direction of movement: 1 for forward, -1 for backward  
 
@@ -50,11 +51,18 @@ class positionController (Node):
     robot_quat = [0.0, 0.0, 0.0, 0.0]           # Quaternion representing the orientation of the robot
 
 
-    # starts with randon value 
+    # main machine states  
     ROBOT_MANUAL = 1000
     ROBOT_AUTONOMOUS = 1000
     ROBOT_INIT = 1000
     ROBOT_EMERGENCY = 1000
+
+
+    # autonomous machine state 
+    ROBOT_MOVING_TO_GOAL = 10 
+    ROBOT_AT_WAYPOINT = 20 
+    ROBOT_AT_GHOST_WAYPOINT = 30
+    ROBOT_MISSION_ACCOMPLISHED = 40
 
 
 
@@ -203,13 +211,15 @@ class positionController (Node):
 
         # Calculate angular velocity using PID controller
         angular_vel = PID_controller(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
+        linear_vel = PID_controller(self.KP_LINEAR, self.KI_LINEAR, self.KD_LINEAR)
 
 
         # Calculate linear velocity based on orientation error
         if self.error_linear != 0:
 
             self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
-        
+            # self.cmd_vel.linear.x = linear_vel.output(self.error_linear)
+
         else: 
 
             self.cmd_vel.linear.x = 0.0
@@ -218,11 +228,19 @@ class positionController (Node):
         # Set angular velocity
         self.cmd_vel.angular.z = angular_vel.output(orientation_error)
 
+        if self.cmd_vel.angular.z > 6.0: 
 
+            self.cmd_vel.linear.x = 0.0
+
+        self.get_logger().warn(f'{self.autonomous_state}')
+        self.get_logger().warn(f'{self.ROBOT_MOVING_TO_GOAL}')
         # Publish velocity if the robot is in autonomous mode
-        if self.robot_state == self.ROBOT_AUTONOMOUS: 
+
+        if self.autonomous_state == self.ROBOT_MOVING_TO_GOAL: 
             
             self.vel_pub.publish(self.cmd_vel)
+            self.get_logger().warn('Publishing cmd_vel!!!!! ')
+
 
         else: 
 
@@ -260,7 +278,7 @@ def main():
     thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
     thread.start()
 
-    rate = node.create_rate(node.FREQUENCY)
+    rate = node.create_rate(10)
 
     try: 
         while rclpy.ok(): 

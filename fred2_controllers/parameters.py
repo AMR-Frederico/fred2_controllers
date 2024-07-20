@@ -91,6 +91,18 @@ def parameters_callback(node: Node, params):
         node.KI_ANGULAR = param.value
 
 
+    if param.name == 'kp_linear':
+        node.KP_LINEAR = param.value
+
+
+    if param.name == 'kd_linear':
+        node.KD_LINEAR = param.value
+
+
+    if param.name == 'ki_linear': 
+        node.KI_LINEAR = param.value
+
+
     if param.name == 'max_linear_vel': 
         node.MAX_LINEAR_VEL = param.value
     
@@ -121,6 +133,10 @@ def get_params(node: Node):
     node.KP_ANGULAR = node.get_parameter('kp_angular').value
     node.KI_ANGULAR = node.get_parameter('ki_angular').value
     node.KD_ANGULAR = node.get_parameter('kd_angular').value
+
+    node.KP_LINEAR = node.get_parameter('kp_linear').value
+    node.KI_LINEAR = node.get_parameter('ki_linear').value
+    node.KD_LINEAR = node.get_parameter('kd_linear').value
 
     node.MAX_LINEAR_VEL = node.get_parameter('max_linear_vel').value
     node.MIN_LINEAR_VEL = node.get_parameter('min_linear_vel').value
