@@ -6,6 +6,11 @@ import threading
 import math
 import sys
 
+import fred2_controllers.subscribers as subscribers
+import fred2_controllers.publishers as publishers 
+import fred2_controllers.parameters as param
+import fred2_controllers.debug as debug
+
 from typing import List
 
 from fred2_controllers.lib.PID import PID_controller
@@ -14,48 +19,50 @@ from fred2_controllers.lib.quat_multiply import quaternion_multiply, reduce_angl
 
 from rclpy.context import Context
 
-from rclpy.node import Node, ParameterDescriptor
-from rclpy.parameter import Parameter, ParameterType
+from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.executors import SingleThreadedExecutor
-from rclpy.qos import QoSPresetProfiles, QoSProfile, QoSHistoryPolicy, QoSLivelinessPolicy, QoSReliabilityPolicy, QoSDurabilityPolicy
 
-from rcl_interfaces.msg import SetParametersResult
-from rcl_interfaces.srv import GetParameters
-
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Pose2D, PoseStamped, Pose, Quaternion, Twist
-from std_msgs.msg import Int16 
+from geometry_msgs.msg import Pose2D, Pose, Quaternion, Twist
 
 # args 
 debug_mode = "--debug" in sys.argv
 
+
 class positionController (Node): 
     
-    odom_pose = Pose()
+    odom_pose = Pose()                          # Current position of the robot obtained from odometry
 
-    goal_pose = Pose2D()
-    robot_state = 2
+    goal_pose = Pose2D()                        # Goal position for the robot to navigate towards
+    robot_state = -1                            # Current state of the robot, starts in random value
+    autonomous_state = -1                       # Current state of the autonomous machine states 
 
-    movement_direction = 1 
+    movement_direction = 1                      # Direction of movement: 1 for forward, -1 for backward  
 
-    robot_quat = Quaternion()
-    robot_pose = Pose2D()
+    robot_quat = Quaternion()                   # Quaternion representing the orientation of the robot  
+    robot_pose = Pose2D()                       # Pose of the robot (position and orientation)
 
-    bkward_pose = Pose2D()
-    front_pose = Pose2D()
+    bkward_pose = Pose2D()                      # Pose when moving backward
+    front_pose = Pose2D()                       # Pose when moving forward
 
-    cmd_vel = Twist()
+    cmd_vel = Twist()                           # Twist message for velocity commands
 
-    rotation_quat = [0.0, 0.0, 0.0, 0.0]
-    robot_quat = [0.0, 0.0, 0.0, 0.0]
+    rotation_quat = [0.0, 0.0, 0.0, 0.0]        # Quaternion used for rotation
+    robot_quat = [0.0, 0.0, 0.0, 0.0]           # Quaternion representing the orientation of the robot
 
 
-    # starts with randon value 
+    # main machine states  
     ROBOT_MANUAL = 1000
     ROBOT_AUTONOMOUS = 1000
-    ROBOT_IN_GOAL = 1000
-    ROBOT_MISSION_COMPLETED = 1000
+    ROBOT_INIT = 1000
     ROBOT_EMERGENCY = 1000
+
+
+    # autonomous machine state 
+    ROBOT_MOVING_TO_GOAL = 10 
+    ROBOT_AT_WAYPOINT = 20 
+    ROBOT_AT_GHOST_WAYPOINT = 30
+    ROBOT_MISSION_ACCOMPLISHED = 40
 
 
 
@@ -79,223 +86,46 @@ class positionController (Node):
                         start_parameter_services=start_parameter_services, 
                         parameter_overrides=parameter_overrides)
         
-        
-        # quality protocol -> the node must not lose any message 
-        qos_profile = QoSProfile(
-            reliability=QoSReliabilityPolicy.RELIABLE, 
-            durability= QoSDurabilityPolicy.VOLATILE,
-            history=QoSHistoryPolicy.KEEP_LAST, 
-            depth=10, 
-            liveliness=QoSLivelinessPolicy.AUTOMATIC
-            
-        )
-                    
-        self.create_subscription(Odometry,
-                                '/odom', 
-                                self.odom_callback, 
-                                qos_profile)
 
+        # ---------- Node configuration
+        subscribers.config(self)
+        publishers.config(self)
 
-        self.create_subscription(PoseStamped, 
-                                '/goal_manager/goal/current', 
-                                self.goalCurrent_callback, 
-                                qos_profile)
-        
+        param.load_params(self) 
+        param.get_params(self)
 
-        self.create_subscription(Int16, 
-                                '/machine_states/robot_state', 
-                                self.robotState_callback, 
-                                qos_profile)
-        
-        
-        self.vel_pub = self.create_publisher(Twist, 
-                                            '/cmd_vel', 
-                                            5)
-        
-        self.load_params()
-        self.get_params()
-
-        self.add_on_set_parameters_callback(self.parameters_callback)
-
-
-    def load_params(self): 
-        
-        self.declare_parameters(
-            namespace='',
-            parameters=[
-                ('kp_angular', None, ParameterDescriptor(description='Proportional gain for angular movement', type=ParameterType.PARAMETER_DOUBLE)),
-                ('ki_angular', None, ParameterDescriptor(description='Integrative gain for angular movement', type=ParameterType.PARAMETER_DOUBLE)),
-                ('kd_angular', None, ParameterDescriptor(description='Derivative gain for angular movement', type=ParameterType.PARAMETER_DOUBLE)),
-                ('kp_linear', None, ParameterDescriptor(description='Proportional gain for linear movement', type=ParameterType.PARAMETER_DOUBLE)),
-                ('ki_linear', None, ParameterDescriptor(description='Integrative gain for linear movement', type=ParameterType.PARAMETER_DOUBLE)),
-                ('kd_linear', None, ParameterDescriptor(description='Derivative gain for linear movement', type=ParameterType.PARAMETER_DOUBLE)),
-                ('max_linear_vel', None, ParameterDescriptor(description='Max linear velocity in a straight line', type=ParameterType.PARAMETER_DOUBLE)),
-                ('min_linear_vel', None, ParameterDescriptor(description='Min linear speed for rotational movement', type=ParameterType.PARAMETER_DOUBLE)),
-                ('debug', None, ParameterDescriptor(description='Enable debug prints', type=ParameterType.PARAMETER_BOOL)), 
-                ('unit_test', None, ParameterDescriptor(description='Allows the node to run isolated', type=ParameterType.PARAMETER_BOOL)),
-            ]
-        )
-
-        self.get_logger().info('All parameters successfully declared')
-
-    # this function update the paramets value changed by ros2 param set
-    def parameters_callback(self, params):  
-        
-        for param in params:
-            self.get_logger().info(f"Parameter '{param.name}' changed to: {param.value}")
-
-
-        if param.name == 'kp_angular':
-            self.KP_ANGULAR = param.value
-    
-  
-        if param.name == 'kd_angular':
-            self.KD_ANGULAR = param.value
-
-
-        if param.name == 'ki_angular': 
-            self.KI_ANGULAR = param.value
-
-
-        if param.name == 'max_linear_vel': 
-            self.MAX_LINEAR_VEL = param.value
-        
-
-        if param.name == 'min_linear_vel': 
-            self.MIN_LINEAR_VEL = param.value
-
-        
-        if param.name == 'debug': 
-            self.DEBUG = param.value
-        
-
-        if param.name == 'unit_test': 
-            self.UNIT_TEST = param.value
-
-
-        return SetParametersResult(successful=True)
-
-
-    # get the param value from the yaml file
-    def get_params(self): 
-        
-        self.KP_ANGULAR = self.get_parameter('kp_angular').value
-        self.KI_ANGULAR = self.get_parameter('ki_angular').value
-        self.KD_ANGULAR = self.get_parameter('kd_angular').value
-
-        self.MAX_LINEAR_VEL = self.get_parameter('max_linear_vel').value
-        self.MIN_LINEAR_VEL = self.get_parameter('min_linear_vel').value
-
-        self.DEBUG = self.get_parameter('debug').value
-        self.UNIT_TEST = self.get_parameter('unit_test').value
-
-
-        # if the unit test is active, it disabled the global param from machine states 
-        if self.UNIT_TEST: 
-            
-            self.robot_state = 2
-            self.get_logger().info('In UNIT TEST mode')  
-
-        
-        else: 
-
-            # Get global params 
-            self.client = self.create_client(GetParameters, '/machine_states/main_robot/get_parameters')
-            self.client.wait_for_service()
-
-            request = GetParameters.Request()
-            request.names = ['manual', 'autonomous', 'in_goal', 'mission_completed', 'emergency']
-
-            future = self.client.call_async(request)
-            future.add_done_callback(self.callback_global_param)
-        
-
-
-
-    # get the global values from the machine states params 
-    def callback_global_param(self, future):
-
-
-        try:
-
-            result = future.result()
-
-            self.ROBOT_MANUAL = result.values[0].integer_value
-            self.ROBOT_AUTONOMOUS = result.values[1].integer_value
-            self.ROBOT_IN_GOAL = result.values[2].integer_value
-            self.ROBOT_MISSION_COMPLETED = result.values[3].integer_value
-            self.ROBOT_EMERGENCY = result.values[4].integer_value
-
-
-            self.get_logger().info(f"Got global param ROBOT_MANUAL -> {self.ROBOT_MANUAL}")
-            self.get_logger().info(f"Got global param ROBOT_AUTONOMOUS -> {self.ROBOT_AUTONOMOUS}")
-            self.get_logger().info(f"Got global param ROBOT_IN GOAL -> {self.ROBOT_IN_GOAL}")
-            self.get_logger().info(f"Got global param ROBOT_MISSION_COMPLETED: {self.ROBOT_MISSION_COMPLETED}")
-            self.get_logger().info(f"Got global param ROBOT_EMERGENCY: {self.ROBOT_EMERGENCY}\n")
-
-
-
-        except Exception as e:
-
-            self.get_logger().warn("Service call failed %r" % (e,))
-
-
-
-    def robotState_callback(self, state): 
-
-        self.robot_state = state.data
+        self.add_on_set_parameters_callback(param.parameters_callback)    
 
 
 
 
-    def goalCurrent_callback(self, goal): 
-
-        self.goal_pose.x = goal.pose.position.x 
-        self.goal_pose.y = goal.pose.position.y 
-        
-        self.goal_pose.theta = tf3d.euler.quat2euler([goal.pose.orientation.w, 
-                                                    goal.pose.orientation.x, 
-                                                    goal.pose.orientation.y, 
-                                                    goal.pose.orientation.z])[2]
-
-
-
-    def odom_callback(self, odom_msg): 
-
-        self.odom_pose.position.x = odom_msg.pose.pose.position.x 
-        self.odom_pose.position.y = odom_msg.pose.pose.position.y
-        self.odom_pose.position.z = odom_msg.pose.pose.position.z 
-
-        self.odom_pose.orientation.w = odom_msg.pose.pose.orientation.w
-        self.odom_pose.orientation.x = odom_msg.pose.pose.orientation.x 
-        self.odom_pose.orientation.y = odom_msg.pose.pose.orientation.y 
-        self.odom_pose.orientation.z = odom_msg.pose.pose.orientation.z 
-        
-
-    
-    
     def move_backward(self): 
 
+        # Convert 180-degree rotation to quaternion
         rotation_180_degree_to_quat = tf3d.euler.euler2quat(0, 0, math.pi)   # Quaternion in w, x, y z (real, then vector) format
         
+        # Assign quaternion components for rotation
         self.rotation_quat[0] = rotation_180_degree_to_quat[1]
         self.rotation_quat[1] = rotation_180_degree_to_quat[2]
         self.rotation_quat[2] = rotation_180_degree_to_quat[3]
         self.rotation_quat[3] = rotation_180_degree_to_quat[0]
 
+        # Get current orientation of the robot
         self.robot_quat[0] = self.odom_pose.orientation.x 
         self.robot_quat[1] = self.odom_pose.orientation.y 
         self.robot_quat[2] = self.odom_pose.orientation.z
         self.robot_quat[3] = self.odom_pose.orientation.w 
 
-
-        
+        # Calculate the quaternion for the backward movement
         backwart_quat = []
         backwart_quat = quaternion_multiply(self.robot_quat, self.rotation_quat)
+
 
         backwart_pose = Pose2D()
         backwart_pose.x = self.odom_pose.position.x 
         backwart_pose.y = self.odom_pose.position.y 
+
+        # Calculate theta for the backward pose
         backwart_pose.theta = tf3d.euler.quat2euler([backwart_quat[3], 
                                                     backwart_quat[0], 
                                                     backwart_quat[1], 
@@ -309,12 +139,15 @@ class positionController (Node):
 
     def move_front(self): 
         
+        # Get current orientation quaternion of the robot
         front_quat = Quaternion()
         front_quat = self.odom_pose.orientation
 
         front_pose = Pose2D()
         front_pose.x = self.odom_pose.position.x 
         front_pose.y = self.odom_pose.position.y 
+
+        # Calculate theta for the front pose
         front_pose.theta = tf3d.euler.quat2euler([front_quat.w, 
                                                 front_quat.x, 
                                                 front_quat.y, 
@@ -325,35 +158,36 @@ class positionController (Node):
 
 
 
-
     def position_control (self): 
         
-
+        # Determine the direction of movement based on the movement_direction variable
         if self.movement_direction == 1: 
             
             self.robot_pose = self.move_front()
-
-
 
         elif self.movement_direction == -1: 
             
             self.robot_pose = self.move_backward()
         
 
+        # Calculate the error between the goal pose and the robot pose
         dx = self.goal_pose.x - self.robot_pose.x 
         dy = self.goal_pose.y - self.robot_pose.y 
 
-        error_linear = math.hypot(dx, dy)
-        error_angle = math.atan2(dy, dx)
+        self.error_linear = math.hypot(dx, dy)
+        self.error_angle = math.atan2(dy, dx)
 
+        # Calculate heading errors for backward movement
         self.bkward_pose = self.move_backward()
-        bkward_heading_error = reduce_angle(error_angle - self.bkward_pose.theta)
+        bkward_heading_error = reduce_angle(self.error_angle - self.bkward_pose.theta)
 
 
+        # Calculate heading errors for forward movement
         self.front_pose = self.move_front()
-        front_heading_error = reduce_angle(error_angle - self.front_pose.theta)
+        front_heading_error = reduce_angle(self.error_angle - self.front_pose.theta)
 
 
+        # Switch movement direction if necessary to minimize heading error
         if (abs(front_heading_error) > abs(bkward_heading_error) and (self.movement_direction == 1)):
             
             self.movement_direction = -1 
@@ -362,7 +196,7 @@ class positionController (Node):
             self.get_logger().warn('Switching to backwards orientation')
 
 
-
+        # Switch movement direction if necessary to minimize heading error
         if (abs(front_heading_error) < abs(bkward_heading_error) and (self.movement_direction == -1)): 
             
             self.movement_direction = 1 
@@ -371,40 +205,52 @@ class positionController (Node):
             self.get_logger().warn('Switching to foward orientation')
 
 
+        # Calculate orientation error
+        orientation_error = reduce_angle(self.error_angle - self.robot_pose.theta)
 
-        orientation_error = reduce_angle(error_angle - self.robot_pose.theta)
 
-
+        # Calculate angular velocity using PID controller
         angular_vel = PID_controller(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
+        linear_vel = PID_controller(self.KP_LINEAR, self.KI_LINEAR, self.KD_LINEAR)
 
 
-        if error_linear != 0:
+        # Calculate linear velocity based on orientation error
+        if self.error_linear != 0:
 
             self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
-        
+            # self.cmd_vel.linear.x = linear_vel.output(self.error_linear)
+
         else: 
 
             self.cmd_vel.linear.x = 0.0
 
 
-
+        # Set angular velocity
         self.cmd_vel.angular.z = angular_vel.output(orientation_error)
 
+        if self.cmd_vel.angular.z > 6.0: 
 
-        if self.robot_state == self.ROBOT_AUTONOMOUS: 
+            self.cmd_vel.linear.x = 0.0
+
+        self.get_logger().warn(f'{self.autonomous_state}')
+        self.get_logger().warn(f'{self.ROBOT_MOVING_TO_GOAL}')
+        # Publish velocity if the robot is in autonomous mode
+
+        if self.autonomous_state == self.ROBOT_MOVING_TO_GOAL: 
             
             self.vel_pub.publish(self.cmd_vel)
+            self.get_logger().warn('Publishing cmd_vel!!!!! ')
 
-    
+
+        else: 
+
+            self.get_logger().warn('Controller deactivated, not in autonomous mode !!!!! ')
+
 
 
         if debug_mode or self.DEBUG:
 
-            self.get_logger().info(f"Robot pose -> x:{self.robot_pose.x} | y: {self.robot_pose.y } | theta: {self.robot_pose.theta}")
-            self.get_logger().info(f"Moviment direction -> {self.movement_direction}")
-            self.get_logger().info(f"Error -> linear: {error_linear} | angular: {error_angle}")
-            self.get_logger().info(f"Velocity -> publish: {self.robot_state == self.ROBOT_AUTONOMOUS} | linear: {self.cmd_vel.linear.x} | angular: {self.cmd_vel.angular.z}\n")
-
+            debug.main(self)
 
 
 def main(): 
@@ -432,7 +278,7 @@ def main():
     thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
     thread.start()
 
-    rate = node.create_rate(7)
+    rate = node.create_rate(10)
 
     try: 
         while rclpy.ok(): 
