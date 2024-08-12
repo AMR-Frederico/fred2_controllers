@@ -215,22 +215,22 @@ class positionController (Node):
 
 
         # Calculate linear velocity based on orientation error
-        if self.error_linear != 0:
+        # if self.error_linear != 0:
 
-            self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
-            # self.cmd_vel.linear.x = linear_vel.output(self.error_linear)
+        #     # self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
 
-        else: 
+        # else: 
 
-            self.cmd_vel.linear.x = 0.0
+        #     self.cmd_vel.linear.x = 0.0
 
 
-        # Set angular velocity
+        # Set linear and angular velocities
+        self.cmd_vel.linear.x = linear_vel.output(self.error_linear)
         self.cmd_vel.angular.z = angular_vel.output(orientation_error)
 
-        if self.cmd_vel.angular.z > 6.0: 
+        # if self.cmd_vel.angular.z > 6.0: 
 
-            self.cmd_vel.linear.x = 0.0
+        #     self.cmd_vel.linear.x = 0.0
 
         self.get_logger().warn(f'{self.autonomous_state}')
         self.get_logger().warn(f'{self.ROBOT_MOVING_TO_GOAL}')
