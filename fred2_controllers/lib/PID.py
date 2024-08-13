@@ -26,7 +26,7 @@ class PID_controller:
 
 
 
-    def proporcional(self): 
+    def proportional(self): 
 
 
         return self.KP * self.error
@@ -81,12 +81,12 @@ class PID_controller:
 
         if self.error != 0: 
             
-            pid_output = self.proporcional() + self.integrative() + self.derivative()
+            pid_output = self.proportional() + self.integrative() + self.derivative()
 
 
         else: 
 
-            pid_output = self.proporcional() + self.derivative()
+            pid_output = self.proportional() + self.derivative()
 
 
         

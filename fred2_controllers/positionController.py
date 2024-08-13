@@ -23,6 +23,7 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.executors import SingleThreadedExecutor
 
+from std_msgs.msg import Float32
 from geometry_msgs.msg import Pose2D, Pose, Quaternion, Twist
 
 # args 
@@ -49,6 +50,17 @@ class positionController (Node):
 
     rotation_quat = [0.0, 0.0, 0.0, 0.0]        # Quaternion used for rotation
     robot_quat = [0.0, 0.0, 0.0, 0.0]           # Quaternion representing the orientation of the robot
+
+
+    linear_proportional_ctl = Float32()
+    linear_integrative_ctl = Float32()
+    linear_derivative_ctl = Float32()
+    linear_ctl_output = Float32()
+
+    angular_proportional_ctl = Float32()
+    angular_integrative_ctl = Float32()
+    angular_derivative_ctl = Float32()
+    angular_ctl_output = Float32()
 
 
     # main machine states  
@@ -228,14 +240,22 @@ class positionController (Node):
         self.cmd_vel.linear.x = linear_vel.output(self.error_linear)
         self.cmd_vel.angular.z = angular_vel.output(orientation_error)
 
-        # if self.cmd_vel.angular.z > 6.0: 
 
-        #     self.cmd_vel.linear.x = 0.0
+        self.linear_proportional_ctl.data = linear_vel.proportional()
+        self.linear_integrative_ctl.data = linear_vel.integrative()
+        self.linear_derivative_ctl.data = linear_vel.derivative()
+        self.linear_ctl_output.data = self.cmd_vel.linear.x
+
+        self.angular_proportional_ctl.data = angular_vel.proportional()
+        self.angular_integrative_ctl.data = angular_vel.integrative()
+        self.angular_derivative_ctl.data = angular_vel.derivative()
+        self.angular_ctl_output.data = self.cmd_vel.angular.z
 
         self.get_logger().warn(f'{self.autonomous_state}')
         self.get_logger().warn(f'{self.ROBOT_MOVING_TO_GOAL}')
+        
+        
         # Publish velocity if the robot is in autonomous mode
-
         if self.autonomous_state == self.ROBOT_MOVING_TO_GOAL: 
             
             self.vel_pub.publish(self.cmd_vel)
@@ -251,6 +271,19 @@ class positionController (Node):
         if debug_mode or self.DEBUG:
 
             debug.main(self)
+
+        
+
+        self.linear_proportional_pub.publish(self.linear_proportional_ctl)
+        self.linear_integrative_pub.publish(self.linear_integrative_ctl)
+        self.linear_derivative_pub.publish(self.linear_derivative_ctl)
+        self.linear_output_pub.publish(self.linear_ctl_output)
+
+        self.angular_proportional_pub.publish(self.angular_proportional_ctl)
+        self.angular_integrative_pub.publish(self.angular_integrative_ctl)
+        self.angular_derivative_pub.publish(self.angular_derivative_ctl)
+        self.angular_output_pub.publish(self.angular_ctl_output)
+
 
 
 def main(): 
