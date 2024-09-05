@@ -22,6 +22,7 @@ from rclpy.context import Context
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.executors import SingleThreadedExecutor
+from rclpy.signals import SignalHandlerOptions
 
 from std_msgs.msg import Float32
 from geometry_msgs.msg import Pose2D, Pose, Quaternion, Twist
@@ -279,7 +280,7 @@ class positionController (Node):
 def main(): 
     
     # Create a custom context for single thread and real-time execution
-    rclpy.init()
+    rclpy.init(args = None, signal_handler_options = SignalHandlerOptions.NO)
 
     position_context = rclpy.Context()
     position_context.init()
@@ -309,6 +310,9 @@ def main():
             node.position_control()
         
     except KeyboardInterrupt:
+
+        node.get_logger().warn(' ------------------------------------ DEACTIVATING NODE --------------------------------------')
+
         pass
 
     rclpy.shutdown()
