@@ -250,22 +250,12 @@ class positionController (Node):
         self.angular_integrative_ctl.data = angular_vel.integrative()
         self.angular_derivative_ctl.data = angular_vel.derivative()
         self.angular_ctl_output.data = self.cmd_vel.angular.z
-
-        self.get_logger().warn(f'{self.autonomous_state}')
-        self.get_logger().warn(f'{self.ROBOT_MOVING_TO_GOAL}')
         
         
         # Publish velocity if the robot is in autonomous mode
         if self.autonomous_state == self.ROBOT_MOVING_TO_GOAL: 
             
             self.vel_pub.publish(self.cmd_vel)
-            self.get_logger().warn('Publishing cmd_vel!!!!! ')
-
-
-        else: 
-
-            self.get_logger().warn('Controller deactivated, not in autonomous mode !!!!! ')
-
 
 
         if debug_mode or self.DEBUG:
