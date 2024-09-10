@@ -109,6 +109,9 @@ class positionController (Node):
 
         self.add_on_set_parameters_callback(param.parameters_callback)    
 
+        # Calculate angular velocity using PID controller
+        self.angular_vel = PID_controller(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
+        self.linear_vel = PID_controller(self.KP_LINEAR, self.KI_LINEAR, self.KD_LINEAR)
 
 
 
@@ -222,15 +225,12 @@ class positionController (Node):
         orientation_error = reduce_angle(self.error_angle - self.robot_pose.theta)
 
 
-        # Calculate angular velocity using PID controller
-        angular_vel = PID_controller(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
-        linear_vel = PID_controller(self.KP_LINEAR, self.KI_LINEAR, self.KD_LINEAR)
 
 
         # Calculate linear velocity based on orientation error
         # if self.error_linear != 0:
 
-        #     # self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_LINEAR_VEL - self.MIN_LINEAR_VEL) + self.MIN_LINEAR_VEL) * self.movement_direction
+        #     # self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_self.linear_vel - self.MIN_self.linear_vel) + self.MIN_self.linear_vel) * self.movement_direction
 
         # else: 
 
@@ -238,21 +238,21 @@ class positionController (Node):
 
 
         # Set linear and angular velocities
-        self.cmd_vel.linear.x = linear_vel.output(self.error_linear)
-        self.cmd_vel.angular.z = angular_vel.output(orientation_error)
+        self.cmd_vel.linear.x = self.linear_vel.output(self.error_linear)
+        self.cmd_vel.angular.z = self.angular_vel.output(orientation_error)
 
 
-        self.linear_proportional_ctl.data = linear_vel.proportional()
-        self.linear_integrative_ctl.data = linear_vel.integrative()
-        self.linear_derivative_ctl.data = linear_vel.derivative()
+        self.linear_proportional_ctl.data = self.linear_vel.proportional()
+        self.linear_integrative_ctl.data = self.linear_vel.integrative()
+        self.linear_derivative_ctl.data = self.linear_vel.derivative()
         self.linear_ctl_output.data = self.cmd_vel.linear.x
 
-        self.angular_proportional_ctl.data = angular_vel.proportional()
-        self.angular_integrative_ctl.data = angular_vel.integrative()
-        self.angular_derivative_ctl.data = angular_vel.derivative()
+        self.angular_proportional_ctl.data = self.angular_vel.proportional()
+        self.angular_integrative_ctl.data = self.angular_vel.integrative()
+        self.angular_derivative_ctl.data = self.angular_vel.derivative()
         self.angular_ctl_output.data = self.cmd_vel.angular.z
         
-        
+
         # Publish velocity if the robot is in autonomous mode
         if self.autonomous_state == self.ROBOT_MOVING_TO_GOAL: 
             
@@ -275,6 +275,8 @@ class positionController (Node):
         self.angular_derivative_pub.publish(self.angular_derivative_ctl)
         self.angular_output_pub.publish(self.angular_ctl_output)
 
+        
+        
 
 
 def main(): 
