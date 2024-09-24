@@ -43,17 +43,26 @@ def config(node: Node):
                             lambda msg: autonomousState_callback(node, msg), 
                             qos_profile)
 
-
+    # ----- Get odom_reset 
+    node.create_subscription(Int16, 
+                            '/odom/reset', 
+                            lambda msg: odomReset_callback(node, msg), 
+                            qos_profile)
+    
 ########################################################
 # ------------- Get callbacks 
 ########################################################
+
+# Get odom reset 
+def odomReset_callback(node: Node, reset): 
+
+    node.reset_pose = reset.data
+
 
 # Get autonomous state 
 def autonomousState_callback(node: Node, state): 
 
     node.autonomous_state = state.data 
-    node.get_logger().info(f'{state.data}')
-
 
 
 # Get robot current state 

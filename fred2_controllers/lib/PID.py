@@ -4,13 +4,13 @@ from time import time
 
 class PID_controller: 
 
-    def __init__(self, KP, KI, KD) -> None:
+    def __init__(self, KP, KI, KD, reset_cmd) -> None:
 
         self.KP = KP
         self.KI = KI
         self.KD = KD
 
-        self.SATURATION = 10        # Saturation for integrative
+        self.SATURATION = 15        # Saturation for integrative
 
         self.time = time()
         self.last_time = time()
@@ -22,16 +22,21 @@ class PID_controller:
 
         self.integral = 0.0
 
+        self.reset = reset_cmd
 
+
+    def gain_scheduling(self, KP, KI, KD):
+
+        self.KP = KP
+        self.KI = KI
+        self.KD = KD
 
 
 
     def proportional(self): 
 
-
         return self.KP * self.error
     
-
 
 
 
@@ -40,10 +45,9 @@ class PID_controller:
         self.integral += self.error * self.delta_time
 
 
-        if abs(self.integral) > self.SATURATION: 
+        if abs(self.integral*self.KI) > self.SATURATION or self.reset: 
 
             self.integral = 0
-
 
 
         return self.integral * self.KI
@@ -79,7 +83,7 @@ class PID_controller:
         self.delta_time = self.time - self.last_time 
 
 
-        if self.error != 0: 
+        if self.error != 0 or abs(self.error) > 0.1: 
             
             pid_output = self.proportional() + self.integrative() + self.derivative()
 
@@ -87,6 +91,8 @@ class PID_controller:
         else: 
 
             pid_output = self.proportional() + self.derivative()
+
+            self.integral = 0
 
 
         

@@ -1,14 +1,15 @@
 
+
 /controllers/positionController:
   ros__parameters:
 
     # PID controller for the angular velocity
-    kp_angular: 8.5      # Proporcional gain 
-    ki_angular: 5.5       # Integrative gain 
+    kp_angular: 8.0      # Proporcional gain 
+    ki_angular: 2.2       # Integrative gain 
     kd_angular: 0.0       # Derivative gain 
 
     # PID controller for the linear velocity
-    kp_linear: 1.0        # Proporcional gain 
+    kp_linear: 4.0        # Proporcional gain 
     ki_linear: 0.0        # Integrative gain
     kd_linear: 0.0        # Derivative gain
 

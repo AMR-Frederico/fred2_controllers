@@ -52,6 +52,7 @@ class positionController (Node):
     rotation_quat = [0.0, 0.0, 0.0, 0.0]        # Quaternion used for rotation
     robot_quat = [0.0, 0.0, 0.0, 0.0]           # Quaternion representing the orientation of the robot
 
+    reset_pose = False
 
     linear_proportional_ctl = Float32()
     linear_integrative_ctl = Float32()
@@ -110,8 +111,8 @@ class positionController (Node):
         self.add_on_set_parameters_callback(param.parameters_callback)    
 
         # Calculate angular velocity using PID controller
-        self.angular_vel = PID_controller(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
-        self.linear_vel = PID_controller(self.KP_LINEAR, self.KI_LINEAR, self.KD_LINEAR)
+        self.angular_vel = PID_controller(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR, self.reset_pose)
+        self.linear_vel = PID_controller(self.KP_LINEAR, self.KI_LINEAR, self.KD_LINEAR, self.reset_pose)
 
 
 
@@ -173,6 +174,46 @@ class positionController (Node):
         return front_pose
 
 
+    def angular_zones (self, error):
+
+        if abs(error) < 10 * (3.1415/180): 
+
+            self.KP_ANGULAR = 3.0
+            self.KI_ANGULAR = 4.2
+        
+        elif abs(error) > 10 * (3.1415/180) and abs(error) <= 30 * (3.1415/180): 
+
+            self.KP_ANGULAR = 1
+            self.KI_ANGULAR = 0.1
+
+        elif abs(error) > 30 * (3.1415/180) and abs(error) <= 60 * (3.1415/180): 
+
+            self.KP_ANGULAR = 7.7
+            self.KI_ANGULAR = 0
+        
+        elif abs(error) > 60 * (3.1415/180) and abs(error) <= 120 * (3.1415/180): 
+            
+            self.KP_ANGULAR = 4.8
+            self.KI_ANGULAR = 0
+        
+        elif abs(error) > 120 * (3.1415/180) and abs(error) <= 150 * (3.1415/180): 
+
+            self.KP_ANGULAR = 3.5
+            self.KI_ANGULAR = 0
+
+        elif abs(error) > 150 * (3.1415/180) and abs(error) <= 180 * (3.1415/180): 
+
+            self.KP_ANGULAR = 2.5 
+            self.KI_ANGULAR = 0
+
+        else: 
+
+            self.get_logger().info('erro invalido')
+
+
+        self.angular_vel.gain_scheduling(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
+
+
 
     def position_control (self): 
         
@@ -195,16 +236,16 @@ class positionController (Node):
 
         # Calculate heading errors for backward movement
         self.bkward_pose = self.move_backward()
-        bkward_heading_error = reduce_angle(self.error_angle - self.bkward_pose.theta)
+        self.bkward_heading_error = reduce_angle(self.error_angle - self.bkward_pose.theta)
 
 
         # Calculate heading errors for forward movement
         self.front_pose = self.move_front()
-        front_heading_error = reduce_angle(self.error_angle - self.front_pose.theta)
+        self.front_heading_error = reduce_angle(self.error_angle - self.front_pose.theta)
 
 
         # Switch movement direction if necessary to minimize heading error
-        if (abs(front_heading_error) > abs(bkward_heading_error) and (self.movement_direction == 1)):
+        if (abs(self.front_heading_error) > abs(self.bkward_heading_error) and (self.movement_direction == 1)):
             
             self.movement_direction = -1 
             self.robot_pose = self.move_backward()
@@ -213,7 +254,7 @@ class positionController (Node):
 
 
         # Switch movement direction if necessary to minimize heading error
-        if (abs(front_heading_error) < abs(bkward_heading_error) and (self.movement_direction == -1)): 
+        if (abs(self.front_heading_error) < abs(self.bkward_heading_error) and (self.movement_direction == -1)): 
             
             self.movement_direction = 1 
             self.robot_pose = self.move_front()
@@ -221,26 +262,20 @@ class positionController (Node):
             self.get_logger().warn('Switching to foward orientation')
 
 
+
         # Calculate orientation error
         orientation_error = reduce_angle(self.error_angle - self.robot_pose.theta)
 
+        self.angular_zones(orientation_error)
 
-
-
-        # Calculate linear velocity based on orientation error
-        # if self.error_linear != 0:
-
-        #     # self.cmd_vel.linear.x = ((1-abs(orientation_error)/math.pi)*(self.MAX_self.linear_vel - self.MIN_self.linear_vel) + self.MIN_self.linear_vel) * self.movement_direction
-
-        # else: 
-
-        #     self.cmd_vel.linear.x = 0.0
 
 
         # Set linear and angular velocities
-        self.cmd_vel.linear.x = self.linear_vel.output(self.error_linear)
+        self.cmd_vel.linear.x = self.linear_vel.output(self.error_linear) * self.movement_direction
         self.cmd_vel.angular.z = self.angular_vel.output(orientation_error)
 
+        if self.cmd_vel.angular.z > 5: 
+            self.cmd_vel.linear.x = self.cmd_vel.linear.x/2
 
         self.linear_proportional_ctl.data = self.linear_vel.proportional()
         self.linear_integrative_ctl.data = self.linear_vel.integrative()
@@ -252,7 +287,6 @@ class positionController (Node):
         self.angular_derivative_ctl.data = self.angular_vel.derivative()
         self.angular_ctl_output.data = self.cmd_vel.angular.z
         
-
         # Publish velocity if the robot is in autonomous mode
         if self.autonomous_state == self.ROBOT_MOVING_TO_GOAL: 
             
