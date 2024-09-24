@@ -246,16 +246,21 @@ class positionController (Node):
         # Calculate orientation error
         orientation_error = reduce_angle(self.error_angle - self.robot_pose.theta)
 
-        self.angular_zones(orientation_error)
 
+        self.angular_zones(orientation_error)
 
 
         # Set linear and angular velocities
         self.cmd_vel.linear.x = self.linear_vel.output(self.error_linear) * self.movement_direction
         self.cmd_vel.angular.z = self.angular_vel.output(orientation_error)
 
-        if self.cmd_vel.angular.z > 5: 
-            self.cmd_vel.linear.x = self.cmd_vel.linear.x/2
+
+        if self.ROTATION_MODE and orientation_error > self.ROTATE_IN_PLACE_THRESHOLD: 
+            self.cmd_vel.linear.x = 0
+            self.cmd_vel.angular.z = 7.0
+
+#        if self.cmd_vel.angular.z > 5: 
+#            self.cmd_vel.linear.x = self.cmd_vel.linear.x/2
 
         self.linear_proportional_ctl.data = self.linear_vel.proportional()
         self.linear_integrative_ctl.data = self.linear_vel.integrative()
@@ -267,6 +272,8 @@ class positionController (Node):
         self.angular_derivative_ctl.data = self.angular_vel.derivative()
         self.angular_ctl_output.data = self.cmd_vel.angular.z
         
+
+
         # Publish velocity if the robot is in autonomous mode
         if self.autonomous_state == self.ROBOT_MOVING_TO_GOAL: 
             
