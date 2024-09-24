@@ -4,10 +4,20 @@
   ros__parameters:
 
     # PID controller for the angular velocity
-    kp_angular: 8.0      # Proporcional gain 
-    ki_angular: 2.2       # Integrative gain 
-    kd_angular: 0.0       # Derivative gain 
+    ## General value
+    kp_angular: 1.0 
+    ki_angular: 0.0
+    kd_angular: 0.0
 
+
+    ## Gain scheduling:  [start_zone, end_zone, kp_gain, ki_gain, kd_gain]
+    gain_scheduling_angular: '[ [0,  10, 3.0, 4.2, 0.0], 
+                                [10, 30, 1.0, 0.1, 0.0], 
+                                [30, 60, 7.7, 0.0, 0.0], 
+                                [60, 120, 4.8, 0.0, 0.0], 
+                                [120, 150, 3.5, 0.0, 0.0]
+                                [150, 180, 2.5, 0.0, 0.0]]'     
+    
     # PID controller for the linear velocity
     kp_linear: 4.0        # Proporcional gain 
     ki_linear: 0.0        # Integrative gain

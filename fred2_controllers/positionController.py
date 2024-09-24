@@ -176,43 +176,21 @@ class positionController (Node):
 
     def angular_zones (self, error):
 
-        if abs(error) < 10 * (3.1415/180): 
-
-            self.KP_ANGULAR = 3.0
-            self.KI_ANGULAR = 4.2
-        
-        elif abs(error) > 10 * (3.1415/180) and abs(error) <= 30 * (3.1415/180): 
-
-            self.KP_ANGULAR = 1
-            self.KI_ANGULAR = 0.1
-
-        elif abs(error) > 30 * (3.1415/180) and abs(error) <= 60 * (3.1415/180): 
-
-            self.KP_ANGULAR = 7.7
-            self.KI_ANGULAR = 0
-        
-        elif abs(error) > 60 * (3.1415/180) and abs(error) <= 120 * (3.1415/180): 
+        # Loop through the gain scheduling zones
+        for zone in self.gain_scheduling_angular:
+            start_zone, end_zone, kp, ki, kd = zone
             
-            self.KP_ANGULAR = 4.8
-            self.KI_ANGULAR = 0
-        
-        elif abs(error) > 120 * (3.1415/180) and abs(error) <= 150 * (3.1415/180): 
+            # Check if the error is within the current zone (convert degrees to radians)
+            if start_zone * (3.1415 / 180) <= abs(error) < end_zone * (3.1415 / 180):
+                
+                self.KP_ANGULAR = kp
+                self.KI_ANGULAR = ki 
+                self.KD_ANGULAR = kd
 
-            self.KP_ANGULAR = 3.5
-            self.KI_ANGULAR = 0
-
-        elif abs(error) > 150 * (3.1415/180) and abs(error) <= 180 * (3.1415/180): 
-
-            self.KP_ANGULAR = 2.5 
-            self.KI_ANGULAR = 0
-
-        else: 
-
-            self.get_logger().info('erro invalido')
-
+                self.get_logger().info(f'In zone: {start_zone} - {end_zone} | kp: {kp} | ki: {ki} | kd: {kd}')
+                
 
         self.angular_vel.gain_scheduling(self.KP_ANGULAR, self.KI_ANGULAR, self.KD_ANGULAR)
-
 
 
     def position_control (self): 

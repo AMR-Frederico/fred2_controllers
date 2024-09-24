@@ -1,5 +1,7 @@
 #!/user/bin/env python3
 
+import json
+
 from rclpy.parameter import Parameter, ParameterType
 from rclpy.node import Node, ParameterDescriptor
 from rcl_interfaces.msg import SetParametersResult
@@ -25,6 +27,11 @@ def load_params(node: Node):
                 ParameterDescriptor(
                     description='Derivative gain for angular movement', 
                     type=ParameterType.PARAMETER_DOUBLE)),
+
+            ('gain_scheduling_angular', None, 
+                ParameterDescriptor(
+                    description='Gain scheduling for angular velocity, with zones and gains', 
+                    type=ParameterType.PARAMETER_STRING)),
 
             ('kp_linear', None, 
                 ParameterDescriptor(
@@ -122,6 +129,11 @@ def parameters_callback(node: Node, params):
     if param.name == 'frequency': 
         node.FREQUENCY = param.value 
 
+    if param.name == 'gain_scheduling_angular': 
+        
+        gain_scheduling_angular_str = param.value
+        node.gain_scheduling_angular = json.loads(gain_scheduling_angular_str)
+
 
     return SetParametersResult(successful=True)
 
@@ -145,6 +157,11 @@ def get_params(node: Node):
     node.GLOBAL_PARAMS = node.get_parameter('use_global_params').value
     node.FREQUENCY = node.get_parameter('frequency').value
 
+    # Get goals as a string 
+    gain_scheduling_angular_str = node.get_parameter('gain_scheduling_angular').value
+    
+    # Decode the JSON string to get the actual list structure for goals
+    node.gain_scheduling_angular = json.loads(gain_scheduling_angular_str)
 
 
     # if the global is active, it disabled the global param from machine states 
