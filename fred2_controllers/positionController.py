@@ -64,6 +64,8 @@ class positionController (Node):
     angular_derivative_ctl = Float32()
     angular_ctl_output = Float32()
 
+    gain_scheduling_angular = None 
+
 
     # main machine states  
     ROBOT_MANUAL = 1000
